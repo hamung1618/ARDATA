@@ -6228,7 +6228,8 @@ function anoRebuild(force) {
     }
 
     // 2. Ada di AR, tidak ada di Penjualan
-    if (a && !p) {
+    // Catatan: jika AR sudah LUNAS, tidak dianggap anomali (sama seperti jenis 3)
+    if (a && !p && a.kategori !== 'lunas') {
       findings.push({
         jenis: 2,
         noFaktur: a.noFaktur,
@@ -6245,7 +6246,9 @@ function anoRebuild(force) {
     }
 
     // 3. UM Piutang Tempo tanpa AR (Cash Dropping tanpa AR = NORMAL)
-    if (u && !a && u.hasPiutangTempo) {
+    // Catatan: jika sudah LUNAS (uang sudah masuk penuh), TIDAK dianggap anomali
+    // meskipun tidak ada catatan di Data AR — karena secara kas transaksi sudah selesai.
+    if (u && !a && u.hasPiutangTempo && !u.hasLunas) {
       findings.push({
         jenis: 3,
         noFaktur: u.noFaktur,
@@ -6275,10 +6278,11 @@ function anoRebuild(force) {
       }
       const arPay = a.totalPayment || 0;
       const umPay = u.totalBayar || 0;
-      if (Math.abs(arPay - umPay) > 1 && (arPay > 0 || umPay > 0)) {
+      const ANO_NOMINAL_TOLERANCE = 1000; // toleransi selisih pembulatan (Rp)
+      if (Math.abs(arPay - umPay) > ANO_NOMINAL_TOLERANCE && (arPay > 0 || umPay > 0)) {
         issues.push('Bayar AR ' + Math.round(arPay).toLocaleString('id-ID') + ' ≠ UM ' + Math.round(umPay).toLocaleString('id-ID'));
       }
-      if (u.tagihan > 0 && a.nominal > 0 && Math.abs(u.tagihan - a.nominal) > 1) {
+      if (u.tagihan > 0 && a.nominal > 0 && Math.abs(u.tagihan - a.nominal) > ANO_NOMINAL_TOLERANCE) {
         issues.push('Tagihan UM ' + Math.round(u.tagihan).toLocaleString('id-ID') + ' ≠ Nominal AR ' + Math.round(a.nominal).toLocaleString('id-ID'));
       }
       if (issues.length) {
