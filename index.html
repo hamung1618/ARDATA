@@ -1958,7 +1958,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
             </div>
             <div class="header-actions">
                 <span class="server-badge"><span class="dot"></span> Offline (lokal saja)</span>
-                <button type="button" class="btn-install" id="btn-install-pwa" title="Install aplikasi ke perangkat">
+                <button type="button" class="btn-install show" id="btn-install-pwa" style="display:inline-flex;" title="Install aplikasi ke perangkat">
                     <span class="ico">⬇</span> Install App
                 </button>
                 <button type="button" class="btn-um-gear" id="btn-um-gear" onclick="openUangMasukPrivate()" title="Pengaturan">⚙️</button>
@@ -16892,23 +16892,44 @@ function anoExportCSV() {
                 || document.referrer.includes('android-app://');
         }
 
+        function isSecurePwaContext() {
+            // Install + Service Worker hanya di HTTPS / localhost — bukan file://
+            const p = location.protocol;
+            const h = location.hostname || '';
+            if (p === 'https:') return true;
+            if (p === 'http:' && (h === 'localhost' || h === '127.0.0.1')) return true;
+            return false;
+        }
+
+        function showInstallBtn() {
+            if (btnInstallPwa && !isStandalonePwa()) {
+                btnInstallPwa.classList.add('show');
+                btnInstallPwa.style.display = 'inline-flex';
+            }
+        }
+
         window.addEventListener('beforeinstallprompt', (e) => {
             e.preventDefault();
             deferredInstallPrompt = e;
-            if (btnInstallPwa && !isStandalonePwa()) {
-                btnInstallPwa.classList.add('show');
-            }
+            showInstallBtn();
+            console.info('[PWA] beforeinstallprompt — tombol Install siap');
         });
 
         window.addEventListener('appinstalled', () => {
             deferredInstallPrompt = null;
-            if (btnInstallPwa) btnInstallPwa.classList.remove('show');
+            if (btnInstallPwa) {
+                btnInstallPwa.classList.remove('show');
+                btnInstallPwa.style.display = 'none';
+            }
             console.log('PWA installed');
         });
 
         if (btnInstallPwa) {
             if (isStandalonePwa()) {
                 btnInstallPwa.classList.remove('show');
+                btnInstallPwa.style.display = 'none';
+            } else {
+                showInstallBtn();
             }
             btnInstallPwa.addEventListener('click', async () => {
                 if (deferredInstallPrompt) {
@@ -16918,42 +16939,59 @@ function anoExportCSV() {
                         console.log('Install choice:', choice && choice.outcome);
                     } catch (_) {}
                     deferredInstallPrompt = null;
-                    btnInstallPwa.classList.remove('show');
                     return;
                 }
-                // Fallback petunjuk (Safari / browser tanpa beforeinstallprompt)
                 const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent);
-                if (isIOS) {
-                    alert('Di iPhone/iPad:\\n1. Ketuk tombol Bagikan (□↑)\\n2. Pilih \"Tambah ke Layar Utama\"\\n3. Ketuk Tambah');
-                } else {
-                    alert('Untuk install:\\n• Chrome/Edge: menu ⋮ → \"Install app\" / \"Tambahkan ke layar utama\"\\n• Atau ikon Install di bilah alamat browser.\\n\\nPastikan dibuka lewat http://localhost atau HTTPS (bukan file://).');
+                if (location.protocol === 'file:') {
+                    alert(
+                        'Ikon Install di bilah browser TIDAK muncul jika file dibuka langsung (file://).\n\n' +
+                        'Agar ikon Install muncul:\n' +
+                        '1. Hosting ke HTTPS (GitHub Pages / server)\n' +
+                        '2. Buka lewat alamat https://...\n' +
+                        '3. Ikon Install muncul di bilah alamat Chrome/Edge\n\n' +
+                        'Sementara, di Android Chrome bisa coba: menu ⋮ → Tambahkan ke layar utama.'
+                    );
+                    return;
                 }
+                if (isIOS) {
+                    alert('Di iPhone/iPad:\n1. Ketuk Bagikan (□↑)\n2. Pilih "Tambah ke Layar Utama"\n3. Ketuk Tambah');
+                    return;
+                }
+                alert(
+                    'Browser belum menampilkan prompt install otomatis.\n\n' +
+                    'Coba:\n' +
+                    '• Chrome/Edge: ikon Install di bilah alamat\n' +
+                    '• Atau menu ⋮ → Install app / Tambahkan ke layar utama\n\n' +
+                    'Alamat sekarang:\n' + location.href
+                );
             });
-            // Safari & browser lain: tampilkan tombol petunjuk juga
-            if (!isStandalonePwa()) {
-                setTimeout(() => {
-                    if (!deferredInstallPrompt && btnInstallPwa) {
-                        btnInstallPwa.classList.add('show');
-                    }
-                }, 1500);
-            }
         }
 
-        // ===== PWA: JANGAN register SW — cache membuat bug fix tidak ikut =====
-        // Unregister SW lama + hapus cache agar file HTML baru selalu terpakai
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.getRegistrations().then(regs => {
-                    regs.forEach(r => r.unregister().then(() => console.info('[UM] SW unregistered')));
-                }).catch(() => {});
-                if (window.caches && caches.keys) {
-                    caches.keys().then(keys => keys.forEach(k => caches.delete(k))).catch(() => {});
-                }
-            });
-        }
-        window.__UM_FIX_VERSION = 'UM-FIX-v4-20260808';
+        // ===== PWA: register Service Worker (diperlukan agar ikon Install bilah browser muncul) =====
+        window.__UM_FIX_VERSION = 'UM-FIX-v5-20260808';
         console.info('[UM]', window.__UM_FIX_VERSION);
-    
+        if ('serviceWorker' in navigator && isSecurePwaContext()) {
+            window.addEventListener('load', () => {
+                if (window.caches && caches.keys) {
+                    caches.keys().then(keys => {
+                        keys.forEach(k => {
+                            if (/ar2|penjualan|uang|um-|workbox/i.test(k)) {
+                                caches.delete(k).then(() => console.info('[PWA] cache lama dihapus:', k));
+                            }
+                        });
+                    }).catch(() => {});
+                }
+                navigator.serviceWorker.register('./sw.js', { updateViaCache: 'none' })
+                  .then(reg => {
+                    console.info('[PWA] SW registered', reg.scope);
+                    try { reg.update(); } catch (_) {}
+                  })
+                  .catch(err => console.warn('[PWA] SW skip:', err));
+            });
+        } else if (location.protocol === 'file:') {
+            console.warn('[PWA] file:// — SW & ikon Install bilah browser tidak tersedia. Perlu HTTPS.');
+        }
+
 // ===== BOOT: hydrate IndexedDB dulu, baru muat modul data =====
 (function bootStorage(){
   if (window.__bootStorageStarted) return;
