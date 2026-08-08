@@ -6148,6 +6148,17 @@ function anoScheduleRebuild(force) {
   }, 30);
 }
 
+function anoUmSettled(u) {
+  // Anggap "lunas" jika status eksplisit LUNAS, ATAU secara nominal bayar sudah
+  // menutup/mekewati tagihan — meskipun kolom STATUS di data mentah kosong ("—").
+  if (!u) return false;
+  if (u.status === 'LUNAS' || u.hasLunas) return true;
+  const bayar = Number(u.totalBayar) || 0;
+  const tagihan = Number(u.tagihan) || 0;
+  if (tagihan > 0 && bayar >= tagihan - 1) return true;
+  return false;
+}
+
 function anoRebuild(force) {
   if (anoIsRebuilding) return;
   anoIsRebuilding = true;
@@ -6170,7 +6181,7 @@ function anoRebuild(force) {
     // Tempo yang sudah LUNAS penuh di UM → bukan anomali jenis 1
     if (p && !a && Math.abs(p.nominal) > 0.5) {
       if (p.isTempo) {
-        const umLunas = u && (u.status === 'LUNAS' || u.hasLunas);
+        const umLunas = anoUmSettled(u);
         const umPay = u ? (Number(u.totalBayar) || 0) : 0;
         const umTag = u ? (Number(u.tagihan) || 0) : 0;
         const nom = Math.abs(p.nominal);
@@ -6246,9 +6257,9 @@ function anoRebuild(force) {
     }
 
     // 3. UM Piutang Tempo tanpa AR (Cash Dropping tanpa AR = NORMAL)
-    // Catatan: jika sudah LUNAS (uang sudah masuk penuh), TIDAK dianggap anomali
-    // meskipun tidak ada catatan di Data AR — karena secara kas transaksi sudah selesai.
-    if (u && !a && u.hasPiutangTempo && !u.hasLunas) {
+    // Catatan: jika sudah lunas secara nominal (bayar >= tagihan), TIDAK dianggap anomali
+    // meskipun tidak ada catatan di Data AR ATAU kolom STATUS di data mentah kosong.
+    if (u && !a && u.hasPiutangTempo && !anoUmSettled(u)) {
       findings.push({
         jenis: 3,
         noFaktur: u.noFaktur,
