@@ -1974,6 +1974,9 @@ body.dark-mode .ano-card-v { color: #e2e8f0; }
 .ano-card[data-k="3"] .ano-card-v { color: #d97706; }
 .ano-card[data-k="4"] .ano-card-v { color: #7c3aed; }
 .ano-card[data-k="5"] .ano-card-v { color: #2563eb; }
+.ano-card[data-k="6"] .ano-card-v { color: #0d9488; }
+.ano-j6 { background: #ccfbf1; color: #0f766e; }
+body.dark-mode .ano-j6 { background: rgba(13,148,136,0.15); color: #5eead4; }
 .ano-jenis {
   display: inline-block; padding: 2px 6px; border-radius: 6px;
   font-size: 0.65rem; font-weight: 700; white-space: nowrap;
@@ -2729,7 +2732,8 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                   <button type="button" class="tabbtn" data-ano="2" onclick="anoSetCat(&#39;2&#39;)">2 · Ada di AR, Tidak Ada di Penjualan</button>
                   <button type="button" class="tabbtn" data-ano="3" onclick="anoSetCat(&#39;3&#39;)">3 · UM Piutang Tempo, Tidak Ada di AR</button>
                   <button type="button" class="tabbtn" data-ano="4" onclick="anoSetCat(&#39;4&#39;)">4 · Status / Nominal AR vs UM beda</button>
-                  <button type="button" class="tabbtn active" data-ano="5" onclick="anoSetCat(&#39;5&#39;)">5 · AR belum lunas, Tidak ada U Masuk</button>
+                  <button type="button" class="tabbtn" data-ano="5" onclick="anoSetCat(&#39;5&#39;)">5 · AR belum lunas, Tidak ada U Masuk</button>
+                  <button type="button" class="tabbtn" data-ano="6" onclick="anoSetCat(&#39;6&#39;)">6 · Cash Penjualan, belum di Uang Masuk</button>
                 </div>
               </div>
               <div class="toolbar-actions">
@@ -2756,6 +2760,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               <div class="ano-card" data-k="3"><div class="ano-card-l">3 · UM Piutang Tempo, Tidak Ada di AR</div><div class="ano-card-v" id="anoC3">8</div></div>
               <div class="ano-card" data-k="4"><div class="ano-card-l">4 · Status / Nominal AR vs UM beda</div><div class="ano-card-v" id="anoC4">102</div></div>
               <div class="ano-card" data-k="5"><div class="ano-card-l">5 · AR belum lunas, Tidak ada U Masuk</div><div class="ano-card-v" id="anoC5">354</div></div>
+              <div class="ano-card" data-k="6"><div class="ano-card-l">6 · Cash Penjualan, belum di Uang Masuk</div><div class="ano-card-v" id="anoC6">0</div></div>
             </div>
 
             <div class="result-info" id="anoResultInfo" style="margin-bottom:8px;" data-prev="Menampilkan 532 dari 532 anomali · PJ: 6967 baris · AR: 625 faktur · UM: 3621 baris · ⛔ exclude: April">Menampilkan 354 dari 574 anomali · PJ: 7050 baris · AR: 625 faktur · UM: 3657 baris · ⛔ exclude: April</div>
@@ -2795,7 +2800,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                 <div class="status-pills" id="fixCatPills">
                   <button type="button" class="tabbtn active" data-fix="semua" onclick="fixSetCat('semua')">Semua</button>
                   <button type="button" class="tabbtn" data-fix="tempo" onclick="fixSetCat('tempo')">Tempo + AR ada</button>
-                  <button type="button" class="tabbtn" data-fix="cash" onclick="fixSetCat('cash')">Cash OK</button>
+                  <button type="button" class="tabbtn" data-fix="cash" onclick="fixSetCat('cash')">Cash + Uang Masuk</button>
                   <button type="button" class="tabbtn" data-fix="lunas" onclick="fixSetCat('lunas')">AR sudah lunas</button>
                   <button type="button" class="tabbtn" data-fix="lengkap" onclick="fixSetCat('lengkap')">Lengkap (PJ+AR+UM)</button>
                 </div>
@@ -2818,7 +2823,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 
             <div class="ano-summary" id="fixSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
               <div class="ano-card fix-card" data-k="tempo" onclick="fixSetCat('tempo')"><div class="ano-card-l">Tempo + AR ada</div><div class="ano-card-v" id="fixCtempo">0</div></div>
-              <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat('cash')"><div class="ano-card-l">Cash OK</div><div class="ano-card-v" id="fixCcash">0</div></div>
+              <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat('cash')"><div class="ano-card-l">Cash + Uang Masuk</div><div class="ano-card-v" id="fixCcash">0</div></div>
               <div class="ano-card fix-card" data-k="lunas" onclick="fixSetCat('lunas')"><div class="ano-card-l">AR sudah lunas</div><div class="ano-card-v" id="fixClunas">0</div></div>
               <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat('lengkap')"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">0</div></div>
             </div>
@@ -6604,7 +6609,7 @@ function fixOnSearch() { fixApplyFilter(); }
 function fixBadge(cat) {
   const map = {
     tempo: ['Tempo + AR', 'fix-b-tempo'],
-    cash: ['Cash OK', 'fix-b-cash'],
+    cash: ['Cash + UM', 'fix-b-cash'],
     lunas: ['AR Lunas', 'fix-b-lunas'],
     lengkap: ['Lengkap', 'fix-b-lengkap'],
     lain: ['Fix', 'fix-b-lain']
@@ -6631,8 +6636,9 @@ function fixClassify(p, a, u) {
   if (isTempo && hasA) {
     return { cat: 'tempo', ket: 'Tempo di Penjualan + sudah ada di AR' + (hasU ? ' · ada jejak UM' : '') };
   }
-  if (isCash) {
-    return { cat: 'cash', ket: 'Cash di Penjualan (normal, tidak wajib AR)' + (hasA ? ' · ada AR' : '') + (hasU ? ' · ada UM' : '') };
+  // Cash OK = CASH di Penjualan DAN sudah ada jejak di Uang Masuk
+  if (isCash && hasU) {
+    return { cat: 'cash', ket: 'Cash di Penjualan + ada di Uang Masuk' + (hasA ? ' · ada AR' : '') };
   }
   // fallback healthy residual
   let bits = [];
@@ -6964,7 +6970,7 @@ function anoRebuild(force) {
           });
         }
       }
-      // Cash tanpa UM / tanpa AR: NORMAL → tidak dicatat anomali
+      // Cash tanpa UM: dicatat sebagai anomali jenis 6 (lihat di bawah)
     }
 
     // Cash di PJ + ada di AR:
@@ -7082,6 +7088,26 @@ function anoRebuild(force) {
         ket: 'AR ' + a.statusLabel + ' (sisa ' + Math.round(a.sisaRiil||0).toLocaleString('id-ID') + '), belum pernah masuk Uang Masuk'
       });
     }
+
+    // 6. CASH di Penjualan, belum ada di Uang Masuk
+    if (p && p.isCash && !p.isTempo && Math.abs(p.nominal) > 0.5) {
+      const hasUm6 = !!(u && ((u.count || 0) > 0 || (u.totalBayar || 0) > 0 || u.hasLunas || u.hasCashDropping || u.hasPiutangTempo));
+      if (!hasUm6) {
+        findings.push({
+          jenis: 6,
+          noFaktur: p.noFaktur,
+          sales: p.sales,
+          toko: p.toko,
+          nomPj: p.nominal,
+          nomAr: a ? a.nominal : null,
+          bayarUm: null,
+          statusAr: a ? a.statusLabel : '—',
+          statusUm: '—',
+          sumberAr: a ? a.sumber : '—',
+          ket: 'Faktur CASH di Penjualan (Rp ' + Math.round(Math.abs(p.nominal)).toLocaleString('id-ID') + '), belum pernah masuk Uang Masuk'
+        });
+      }
+    }
   });
   // sort by jenis then faktur
   findings.sort((x, y) => x.jenis - y.jenis || String(x.noFaktur).localeCompare(String(y.noFaktur)));
@@ -7118,9 +7144,9 @@ function anoRebuild(force) {
   anoFindings = findings;
 
   // update counts (single pass)
-  const counts = [0, 0, 0, 0, 0, 0];
+  const counts = [0, 0, 0, 0, 0, 0, 0];
   for (let i = 0; i < findings.length; i++) counts[findings[i].jenis]++;
-  for (let i = 1; i <= 5; i++) {
+  for (let i = 1; i <= 6; i++) {
     const el = document.getElementById('anoC' + i);
     if (el) el.textContent = counts[i].toLocaleString('id-ID');
   }
@@ -7143,7 +7169,8 @@ function anoJenisLabel(j) {
     2: ['2·No PJ', 'ano-j2'],
     3: ['3·Cash', 'ano-j3'],
     4: ['4·Selisih', 'ano-j4'],
-    5: ['5·No UM', 'ano-j5']
+    5: ['5·No UM', 'ano-j5'],
+    6: ['6·Cash−UM', 'ano-j6']
   };
   const m = map[j] || ['?', ''];
   return '<span class="ano-jenis ' + m[1] + '" title="' + (m[0]) + '">' + m[0] + '</span>';
