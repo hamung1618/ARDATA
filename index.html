@@ -6989,14 +6989,26 @@ function anoShowBusy(on) {
   if (on) {
     info.dataset.prev = info.textContent || '';
     info.innerHTML = '<span style="color:#64748b">⏳ Memeriksa anomali (Penjualan × AR × Uang Masuk)...</span>';
+  } else if (info.dataset.prev != null && info.innerHTML.indexOf('Memeriksa anomali') >= 0) {
+    // biarkan anoRender menimpa; hanya bersihkan jika masih teks busy
+    info.textContent = info.dataset.prev || info.textContent;
   }
 }
 
 /** @param {boolean} force - true = selalu rebuild (tombol Periksa ulang) */
+let anoIdleHandle = null;
+
 function anoScheduleRebuild(force) {
   if (anoRebuildTimer) {
     clearTimeout(anoRebuildTimer);
     anoRebuildTimer = null;
+  }
+  if (anoIdleHandle != null) {
+    try {
+      if (typeof cancelIdleCallback === 'function') cancelIdleCallback(anoIdleHandle);
+      else clearTimeout(anoIdleHandle);
+    } catch (_) {}
+    anoIdleHandle = null;
   }
   const fp = anoDataFingerprint();
   if (!force && fp === anoLastFingerprint && anoFindings) {
@@ -7005,11 +7017,20 @@ function anoScheduleRebuild(force) {
     return;
   }
   anoShowBusy(true);
-  // biarkan tab dulu ter-paint, baru hitung di tick berikutnya
-  anoRebuildTimer = setTimeout(function() {
+  const run = function() {
     anoRebuildTimer = null;
+    anoIdleHandle = null;
     try { anoRebuild(force); } catch (e) { console.error('anoRebuild', e); }
-  }, 30);
+  };
+  // force (klik Periksa ulang): delay singkat agar busy indicator tampil
+  // auto-rebuild: requestIdleCallback agar pindah tab / UI tetap responsif
+  if (force) {
+    anoRebuildTimer = setTimeout(run, 16);
+  } else if (typeof requestIdleCallback === 'function') {
+    anoIdleHandle = requestIdleCallback(function() { run(); }, { timeout: 900 });
+  } else {
+    anoRebuildTimer = setTimeout(run, 30);
+  }
 }
 
 function anoUmSettled(u) {
@@ -7026,6 +7047,35 @@ function anoUmSettled(u) {
   return false;
 }
 
+
+/** Web Worker untuk hitung anomali (opsional). Jika gagal → fallback chunked main thread. */
+var __anoWorkerBlobUrl = null;
+function anoRunFindingsWorker(pj, ar, um, cb) {
+  try {
+    if (typeof Worker === 'undefined') { cb(new Error('no-worker')); return; }
+    // Serialisasi map besar bisa lebih mahal daripada hitung di main thread.
+    // Worker diaktifkan hanya sebagai path opsional; logika bisnis penuh tetap
+    // di main-thread chunked (anoPumpKeys) agar hasil identik & mudah di-maintain.
+    // Nonaktifkan otomatis jika transfer > ~2MB JSON.
+    var payload;
+    try {
+      payload = JSON.stringify({ pj: pj, ar: ar, um: um });
+    } catch (eSer) {
+      cb(eSer);
+      return;
+    }
+    if (payload.length > 2.5e6) {
+      cb(new Error('payload-too-large'));
+      return;
+    }
+    // Untuk kestabilan hasil, saat ini kita minta fallback (chunked idle).
+    // Hook ini siap jika nanti logika pure di-port ke worker.
+    cb(new Error('use-chunked-idle'));
+  } catch (e) {
+    cb(e);
+  }
+}
+
 function anoRebuild(force) {
   if (anoIsRebuilding) return;
   anoIsRebuilding = true;
@@ -7036,9 +7086,10 @@ function anoRebuild(force) {
   const um = anoGetUmMap();
   const findings = [];
 
-  const allKeys = new Set([...Object.keys(pj), ...Object.keys(ar), ...Object.keys(um)]);
+  const allKeys = Array.from(new Set([].concat(Object.keys(pj), Object.keys(ar), Object.keys(um))));
 
-  allKeys.forEach(f => {
+  function anoProcessOneKey(f) {
+
     const p = pj[f];
     const a = ar[f];
     const u = um[f];
@@ -7245,7 +7296,10 @@ function anoRebuild(force) {
         });
       }
     }
-  });
+
+  }
+
+  function anoFinalizeFindings() {
   // sort by jenis then faktur
   findings.sort((x, y) => x.jenis - y.jenis || String(x.noFaktur).localeCompare(String(y.noFaktur)));
   // Lengkapi tanggal faktur & tgl bayar UM dari map
@@ -7295,8 +7349,74 @@ function anoRebuild(force) {
   if (info && info.textContent && info.textContent.indexOf('Menampilkan') >= 0) {
     info.textContent += ' · ' + Math.round(t1 - t0) + ' ms';
   }
-  } finally {
+
     anoIsRebuilding = false;
+    anoShowBusy(false);
+  }
+
+  // --- Worker path (dataset besar) atau chunked requestIdleCallback ---
+  function anoPumpKeys(deadline) {
+    try {
+      const t0c = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
+      let budget = 12;
+      if (deadline && typeof deadline.timeRemaining === 'function') {
+        budget = Math.max(8, Math.min(24, deadline.timeRemaining()));
+        if (deadline.didTimeout) budget = 20;
+      }
+      while (anoKeyIndex < allKeys.length) {
+        anoProcessOneKey(allKeys[anoKeyIndex++]);
+        const elapsed = ((typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now()) - t0c;
+        if (elapsed >= budget) break;
+      }
+      if (anoKeyIndex < allKeys.length) {
+        if (typeof requestIdleCallback === 'function') {
+          requestIdleCallback(anoPumpKeys, { timeout: 500 });
+        } else {
+          setTimeout(function() { anoPumpKeys(null); }, 0);
+        }
+      } else {
+        anoFinalizeFindings();
+      }
+    } catch (e) {
+      console.error('anoPumpKeys', e);
+      anoIsRebuilding = false;
+      try { anoShowBusy(false); } catch (_) {}
+    }
+  }
+
+  var anoKeyIndex = 0;
+
+  // Coba Web Worker untuk dataset besar (hindari serialisasi map kecil yang tidak worth it)
+  if (typeof Worker !== 'undefined' && allKeys.length >= 1200 && !window.__anoWorkerDisabled) {
+    try {
+      anoRunFindingsWorker(pj, ar, um, function(err, workerFindings) {
+        if (err || !workerFindings) {
+          // fallback chunked di main thread
+          anoKeyIndex = 0;
+          if (typeof requestIdleCallback === 'function') requestIdleCallback(anoPumpKeys, { timeout: 400 });
+          else setTimeout(function() { anoPumpKeys(null); }, 0);
+          return;
+        }
+        for (var wi = 0; wi < workerFindings.length; wi++) findings.push(workerFindings[wi]);
+        anoFinalizeFindings();
+      });
+      return; // async — flag dibersihkan di finalize
+    } catch (eW) {
+      console.warn('Worker anomali gagal, fallback main thread', eW);
+    }
+  }
+
+  // Default: chunked idle di main thread (UI tetap bisa pindah tab)
+  if (typeof requestIdleCallback === 'function') {
+    requestIdleCallback(anoPumpKeys, { timeout: 400 });
+  } else {
+    setTimeout(function() { anoPumpKeys(null); }, 0);
+  }
+  return; // async path — flag dibersihkan di anoFinalizeFindings
+  } catch (eAno) {
+    console.error('anoRebuild', eAno);
+    anoIsRebuilding = false;
+    try { anoShowBusy(false); } catch (_) {}
   }
 }
 
