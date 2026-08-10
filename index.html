@@ -2783,6 +2783,33 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                   <input type="text" id="anoSearch" class="quick-faktur-input" placeholder="Cari faktur / toko / sales..." oninput="onAnoSearchInput()">
                   <button type="button" class="quick-faktur-clear" title="Reset pencarian" onclick="resetAnoSearch()">✕</button>
                 </div>
+                <div class="bulan-data-filter" title="Filter bulan faktur">
+                  <label class="bulan-data-label" for="anoFilterBulan">📅 Bulan</label>
+                  <select id="anoFilterBulan" class="bulan-data-select" onchange="anoRender()">
+                  <option value="">Semua bulan</option>
+                  <option value="01">Januari</option>
+                  <option value="02">Februari</option>
+                  <option value="03">Maret</option>
+                  <option value="04">April</option>
+                  <option value="05">Mei</option>
+                  <option value="06">Juni</option>
+                  <option value="07">Juli</option>
+                  <option value="08">Agustus</option>
+                  <option value="09">September</option>
+                  <option value="10">Oktober</option>
+                  <option value="11">November</option>
+                  <option value="12">Desember</option>
+                  </select>
+                </div>
+                <div class="status-data-filter" title="Filter sumber AR" style="background:#f0fdf4;border-color:#86efac;">
+                  <label class="status-data-label" for="anoFilterSumber" style="color:#15803d;">📂 Sumber</label>
+                  <select id="anoFilterSumber" class="status-data-select" onchange="anoRender()" style="color:#166534;min-width:110px;">
+                  <option value="">Semua sumber</option>
+                  <option value="MINYAK">MINYAK</option>
+                  <option value="RUPA-RUPA">RUPA-RUPA</option>
+                  <option value="—">Tanpa sumber AR</option>
+                  </select>
+                </div>
                 <button type="button" class="ano-show-all" id="anoShowAllBtn" onclick="anoSetCat('semua')" style="display:none;">✕ Tampilkan semua</button>
               </div>
               <div class="dropdown ano-menu-wrap">
@@ -2843,6 +2870,33 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                   <span class="quick-faktur-icon">🔍</span>
                   <input type="text" id="fixSearch" class="quick-faktur-input" placeholder="Cari faktur / toko / sales..." oninput="onFixSearchInput()">
                   <button type="button" class="quick-faktur-clear" title="Reset pencarian" onclick="resetFixSearch()">✕</button>
+                </div>
+                <div class="bulan-data-filter" title="Filter bulan faktur">
+                  <label class="bulan-data-label" for="fixFilterBulan">📅 Bulan</label>
+                  <select id="fixFilterBulan" class="bulan-data-select" onchange="fixApplyFilter()">
+                  <option value="">Semua bulan</option>
+                  <option value="01">Januari</option>
+                  <option value="02">Februari</option>
+                  <option value="03">Maret</option>
+                  <option value="04">April</option>
+                  <option value="05">Mei</option>
+                  <option value="06">Juni</option>
+                  <option value="07">Juli</option>
+                  <option value="08">Agustus</option>
+                  <option value="09">September</option>
+                  <option value="10">Oktober</option>
+                  <option value="11">November</option>
+                  <option value="12">Desember</option>
+                  </select>
+                </div>
+                <div class="status-data-filter" title="Filter sumber AR" style="background:#f0fdf4;border-color:#86efac;">
+                  <label class="status-data-label" for="fixFilterSumber" style="color:#15803d;">📂 Sumber</label>
+                  <select id="fixFilterSumber" class="status-data-select" onchange="fixApplyFilter()" style="color:#166534;min-width:110px;">
+                  <option value="">Semua sumber</option>
+                  <option value="MINYAK">MINYAK</option>
+                  <option value="RUPA-RUPA">RUPA-RUPA</option>
+                  <option value="—">Tanpa sumber AR</option>
+                  </select>
                 </div>
                 <div class="dropdown ano-menu-wrap">
                   <button type="button" class="btn btn-secondary" onclick="fixToggleMenu()">⚙️ Aksi ▾</button>
@@ -6777,9 +6831,25 @@ function fixRebuild(force) {
 function fixApplyFilter() {
   const qEl = document.getElementById('fixSearch');
   const q = qEl ? qEl.value.trim().toLowerCase() : '';
+  const bulanEl = document.getElementById('fixFilterBulan');
+  const sumberEl = document.getElementById('fixFilterSumber');
+  const bulan = bulanEl ? bulanEl.value : '';
+  const sumber = sumberEl ? sumberEl.value : '';
   let rows = fixAllRows;
   if (fixActiveCat && fixActiveCat !== 'semua') {
     rows = rows.filter(function(r) { return r.cat === fixActiveCat; });
+  }
+  if (bulan) {
+    rows = rows.filter(function(r) {
+      return (typeof anoMonthFromTgl === 'function' ? anoMonthFromTgl(r.tglFaktur) : '') === bulan;
+    });
+  }
+  if (sumber) {
+    rows = rows.filter(function(r) {
+      const s = String(r.sumberAr || '').trim().toUpperCase();
+      if (sumber === '—') return !s || s === '—' || s === '-';
+      return s === sumber.toUpperCase();
+    });
   }
   if (q) {
     rows = rows.filter(function(r) {
@@ -7236,13 +7306,39 @@ function anoOnScroll() {
   });
 }
 
+function anoMonthFromTgl(tgl) {
+  if (!tgl) return '';
+  const s = String(tgl).trim();
+  // DD/MM/YYYY
+  const m1 = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
+  if (m1) return m1[2].padStart(2, '0');
+  // YYYY-MM-DD
+  const m2 = s.match(/^(\d{4})-(\d{2})/);
+  if (m2) return m2[2];
+  return '';
+}
+
 function anoRender() {
   const qEl = document.getElementById('anoSearch');
   const q = qEl ? qEl.value.trim().toLowerCase() : '';
+  const bulanEl = document.getElementById('anoFilterBulan');
+  const sumberEl = document.getElementById('anoFilterSumber');
+  const bulan = bulanEl ? bulanEl.value : '';
+  const sumber = sumberEl ? sumberEl.value : '';
   let rows = anoFindings;
   if (anoActiveCat !== 'semua') {
     const cat = parseInt(anoActiveCat, 10);
     rows = rows.filter(r => r.jenis === cat);
+  }
+  if (bulan) {
+    rows = rows.filter(r => anoMonthFromTgl(r.tglFaktur) === bulan);
+  }
+  if (sumber) {
+    rows = rows.filter(r => {
+      const s = String(r.sumberAr || '').trim().toUpperCase();
+      if (sumber === '—') return !s || s === '—' || s === '-';
+      return s === sumber.toUpperCase();
+    });
   }
   if (q) {
     rows = rows.filter(r =>
