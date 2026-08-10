@@ -2855,17 +2855,15 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 
         <div class="tab-panel" id="tab-fix">
           <div class="ano-wrap">
-            <div class="table-toolbar" style="margin-bottom:10px;">
-              <div class="toolbar-left" style="flex-wrap:wrap;gap:8px;">
-                <div class="status-pills" id="fixCatPills">
-                  <button type="button" class="tabbtn active" data-fix="semua" onclick="fixSetCat('semua')">Semua</button>
-                  <button type="button" class="tabbtn" data-fix="tempo" onclick="fixSetCat('tempo')">Tempo + AR ada</button>
-                  <button type="button" class="tabbtn" data-fix="cash" onclick="fixSetCat('cash')">Cash + Uang Masuk</button>
-                  <button type="button" class="tabbtn" data-fix="lunas" onclick="fixSetCat('lunas')">AR sudah lunas</button>
-                  <button type="button" class="tabbtn" data-fix="lengkap" onclick="fixSetCat('lengkap')">Lengkap (PJ+AR+UM)</button>
-                </div>
-              </div>
-              <div class="toolbar-actions">
+            <div class="ano-summary" id="fixSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px;">
+              <div class="ano-card fix-card" data-k="tempo" onclick="fixSetCat('tempo')"><div class="ano-card-l">Tempo + AR ada</div><div class="ano-card-v" id="fixCtempo">0</div></div>
+              <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat('cash')"><div class="ano-card-l">Cash + Uang Masuk</div><div class="ano-card-v" id="fixCcash">0</div></div>
+              <div class="ano-card fix-card" data-k="lunas" onclick="fixSetCat('lunas')"><div class="ano-card-l">AR sudah lunas</div><div class="ano-card-v" id="fixClunas">0</div></div>
+              <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat('lengkap')"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">0</div></div>
+            </div>
+
+            <div class="ano-toolbar-below">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
                 <div class="quick-faktur" id="fixSearch-wrap">
                   <span class="quick-faktur-icon">🔍</span>
                   <input type="text" id="fixSearch" class="quick-faktur-input" placeholder="Cari faktur / toko / sales..." oninput="onFixSearchInput()">
@@ -2898,21 +2896,15 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                   <option value="—">Tanpa sumber AR</option>
                   </select>
                 </div>
-                <div class="dropdown ano-menu-wrap">
-                  <button type="button" class="btn btn-secondary" onclick="fixToggleMenu()">⚙️ Aksi ▾</button>
-                  <div class="dropdown-menu" id="fixMenuDd" style="right:0;left:auto;min-width:200px;">
-                    <button type="button" class="um-menu-item" onclick="fixRebuild(true); fixCloseMenu();">🔄 Periksa ulang</button>
-                    <button type="button" class="um-menu-item" onclick="fixExportCSV(); fixCloseMenu();">📄 Export CSV</button>
-                  </div>
+                <button type="button" class="ano-show-all" id="fixShowAllBtn" onclick="fixSetCat('semua')" style="display:none;">✕ Tampilkan semua</button>
+              </div>
+              <div class="dropdown ano-menu-wrap">
+                <button type="button" class="btn btn-secondary" onclick="fixToggleMenu()">⚙️ Aksi ▾</button>
+                <div class="dropdown-menu" id="fixMenuDd" style="right:0;left:auto;min-width:200px;">
+                  <button type="button" class="um-menu-item" onclick="fixRebuild(true); fixCloseMenu();">🔄 Periksa ulang</button>
+                  <button type="button" class="um-menu-item" onclick="fixExportCSV(); fixCloseMenu();">📄 Export CSV</button>
                 </div>
               </div>
-            </div>
-
-            <div class="ano-summary" id="fixSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
-              <div class="ano-card fix-card" data-k="tempo" onclick="fixSetCat('tempo')"><div class="ano-card-l">Tempo + AR ada</div><div class="ano-card-v" id="fixCtempo">0</div></div>
-              <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat('cash')"><div class="ano-card-l">Cash + Uang Masuk</div><div class="ano-card-v" id="fixCcash">0</div></div>
-              <div class="ano-card fix-card" data-k="lunas" onclick="fixSetCat('lunas')"><div class="ano-card-l">AR sudah lunas</div><div class="ano-card-v" id="fixClunas">0</div></div>
-              <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat('lengkap')"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">0</div></div>
             </div>
 
             <!-- Panel Detail Faktur (inline, di bawah cards ringkasan) -->
@@ -6710,10 +6702,16 @@ document.addEventListener('click', function(e) {
 });
 
 function fixSetCat(cat) {
+  // Klik kartu yang sama lagi → kembali ke Semua
+  if (cat && cat !== 'semua' && String(fixActiveCat) === String(cat)) {
+    cat = 'semua';
+  }
   fixActiveCat = cat || 'semua';
-  document.querySelectorAll('#fixCatPills .tabbtn').forEach(b => {
-    b.classList.toggle('active', b.dataset.fix === fixActiveCat);
+  document.querySelectorAll('#fixSummary .ano-card, #fixSummary .fix-card').forEach(c => {
+    c.classList.toggle('active-cat', fixActiveCat !== 'semua' && String(c.dataset.k) === String(fixActiveCat));
   });
+  const showAll = document.getElementById('fixShowAllBtn');
+  if (showAll) showAll.style.display = (fixActiveCat && fixActiveCat !== 'semua') ? '' : 'none';
   fixApplyFilter();
 }
 
