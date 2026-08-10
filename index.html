@@ -287,7 +287,47 @@
             gap: 6px;
             flex-wrap: wrap;
         }
-        .btn-search-reset {
+        
+        .searchbox-wrap.has-clear {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            flex: 1;
+            min-width: 0;
+        }
+        .searchbox-wrap.has-clear .searchbox {
+            flex: 1;
+            min-width: 0;
+        }
+        .searchbox-wrap.has-clear .quick-faktur-clear {
+            display: none;
+        }
+        .searchbox-wrap.has-clear.has-value .quick-faktur-clear {
+            display: inline-flex;
+        }
+        .ano-toolbar-below {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 10px;
+        }
+        .ano-card.active-cat {
+            border-color: #3b82f6;
+            box-shadow: 0 0 0 2px rgba(59,130,246,0.25);
+        }
+        .ano-show-all {
+            font-size: 0.75rem;
+            color: #3b82f6;
+            background: none;
+            border: none;
+            cursor: pointer;
+            padding: 4px 8px;
+            font-weight: 600;
+        }
+        .ano-show-all:hover { text-decoration: underline; }
+.btn-search-reset {
             padding: 5px 10px;
             font-size: 0.72rem;
             height: 30px;
@@ -2399,7 +2439,10 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
     </div>
     <div class="filter-chip search-chip-half">
       <span class="chip-icon">🔍</span>
-      <div class="searchbox-wrap"><input type="text" class="searchbox" id="searchBox" placeholder="Cari toko / sales / no faktur..."><button type="button" class="btn btn-secondary btn-search-reset" id="arSearchReset" onclick="resetArSearch()" style="display:none;">✕ Reset</button></div>
+      <div class="searchbox-wrap has-clear" id="arSearch-wrap">
+        <input type="text" class="searchbox" id="searchBox" placeholder="Cari toko / sales / no faktur...">
+        <button type="button" class="quick-faktur-clear" id="arSearchReset" title="Reset pencarian" onclick="resetArSearch()">✕</button>
+      </div>
     </div>
     <div class="upload-status" id="uploadStatus"><span class="ok">MINYAK</span>: <span class="file-count">382</span> faktur · <span class="ok">RUPA-RUPA</span>: <span class="file-count">243</span> faktur</div>
     <div class="menu-wrap" id="menuWrap">
@@ -2724,36 +2767,6 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         <!-- ========== TAB DATA ANOMALI ========== -->
         <div class="tab-panel" id="tab-anomali">
           <div class="ano-wrap">
-            <div class="table-toolbar" style="margin-bottom:10px;">
-              <div class="toolbar-left" style="flex-wrap:wrap;gap:8px;">
-                <div class="status-pills" id="anoCatPills">
-                  <button type="button" class="tabbtn" data-ano="semua" onclick="anoSetCat(&#39;semua&#39;)">Semua</button>
-                  <button type="button" class="tabbtn" data-ano="1" onclick="anoSetCat(&#39;1&#39;)">1 · TEMPO, belum ada di AR</button>
-                  <button type="button" class="tabbtn" data-ano="2" onclick="anoSetCat(&#39;2&#39;)">2 · Ada di AR, Tidak Ada di Penjualan</button>
-                  <button type="button" class="tabbtn" data-ano="3" onclick="anoSetCat(&#39;3&#39;)">3 · UM Piutang Tempo, Tidak Ada di AR</button>
-                  <button type="button" class="tabbtn" data-ano="4" onclick="anoSetCat(&#39;4&#39;)">4 · Status / Nominal AR vs UM beda</button>
-                  <button type="button" class="tabbtn" data-ano="5" onclick="anoSetCat(&#39;5&#39;)">5 · AR belum lunas, Tidak ada U Masuk</button>
-                  <button type="button" class="tabbtn" data-ano="6" onclick="anoSetCat(&#39;6&#39;)">6 · Cash Penjualan, belum di Uang Masuk</button>
-                </div>
-              </div>
-              <div class="toolbar-actions">
-                <div class="quick-faktur" id="anoSearch-wrap">
-                  <span class="quick-faktur-icon">🔍</span>
-                  <input type="text" id="anoSearch" class="quick-faktur-input" placeholder="Cari faktur / toko / sales..." oninput="onAnoSearchInput()">
-                  <button type="button" class="quick-faktur-clear" title="Reset pencarian" onclick="resetAnoSearch()">✕</button>
-                </div>
-                <div class="dropdown ano-menu-wrap">
-                  <button type="button" class="btn btn-secondary" id="anoMenuBtn" onclick="anoToggleMenu()">⚙️ Aksi ▾</button>
-                  <div class="dropdown-menu" id="anoMenuDd" style="right:0;left:auto;min-width:220px;">
-                    <button type="button" class="um-menu-item" onclick="anoScheduleRebuild(true); anoCloseMenu();">🔄 Periksa ulang</button>
-                    <button type="button" class="um-menu-item" onclick="anoExportCSV(); anoCloseMenu();">📄 Export CSV</button>
-                    <div class="um-menu-divider"></div>
-                    <button type="button" class="um-menu-item um-menu-danger" id="anoTrashBtn" onclick="anoOpenTrash(); anoCloseMenu();">🗑️ Tempat Sampah (<span id="anoTrashCount">0</span>)</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div class="ano-summary" id="anoSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px;">
               <div class="ano-card" data-k="1"><div class="ano-card-l">1 · TEMPO, belum ada di AR</div><div class="ano-card-v" id="anoC1">109</div></div>
               <div class="ano-card" data-k="2"><div class="ano-card-l">2 · Ada di AR, Tidak Ada di Penjualan</div><div class="ano-card-v" id="anoC2">1</div></div>
@@ -2761,6 +2774,26 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               <div class="ano-card" data-k="4"><div class="ano-card-l">4 · Status / Nominal AR vs UM beda</div><div class="ano-card-v" id="anoC4">102</div></div>
               <div class="ano-card" data-k="5"><div class="ano-card-l">5 · AR belum lunas, Tidak ada U Masuk</div><div class="ano-card-v" id="anoC5">354</div></div>
               <div class="ano-card" data-k="6"><div class="ano-card-l">6 · Cash Penjualan, belum di Uang Masuk</div><div class="ano-card-v" id="anoC6">0</div></div>
+            </div>
+
+            <div class="ano-toolbar-below">
+              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                <div class="quick-faktur" id="anoSearch-wrap">
+                  <span class="quick-faktur-icon">🔍</span>
+                  <input type="text" id="anoSearch" class="quick-faktur-input" placeholder="Cari faktur / toko / sales..." oninput="onAnoSearchInput()">
+                  <button type="button" class="quick-faktur-clear" title="Reset pencarian" onclick="resetAnoSearch()">✕</button>
+                </div>
+                <button type="button" class="ano-show-all" id="anoShowAllBtn" onclick="anoSetCat('semua')" style="display:none;">✕ Tampilkan semua</button>
+              </div>
+              <div class="dropdown ano-menu-wrap">
+                <button type="button" class="btn btn-secondary" id="anoMenuBtn" onclick="anoToggleMenu()">⚙️ Aksi ▾</button>
+                <div class="dropdown-menu" id="anoMenuDd" style="right:0;left:auto;min-width:220px;">
+                  <button type="button" class="um-menu-item" onclick="anoScheduleRebuild(true); anoCloseMenu();">🔄 Periksa ulang</button>
+                  <button type="button" class="um-menu-item" onclick="anoExportCSV(); anoCloseMenu();">📄 Export CSV</button>
+                  <div class="um-menu-divider"></div>
+                  <button type="button" class="um-menu-item um-menu-danger" id="anoTrashBtn" onclick="anoOpenTrash(); anoCloseMenu();">🗑️ Tempat Sampah (<span id="anoTrashCount">0</span>)</button>
+                </div>
+              </div>
             </div>
 
             <div class="result-info" id="anoResultInfo" style="margin-bottom:8px;" data-prev="Menampilkan 532 dari 532 anomali · PJ: 6967 baris · AR: 625 faktur · UM: 3621 baris · ⛔ exclude: April">Menampilkan 354 dari 574 anomali · PJ: 7050 baris · AR: 625 faktur · UM: 3657 baris · ⛔ exclude: April</div>
@@ -3518,15 +3551,15 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         }
         function onArSearchInput() {
             const el = document.getElementById('searchBox');
-            const btn = document.getElementById('arSearchReset');
-            if (btn) btn.style.display = (el && el.value.trim()) ? 'inline-flex' : 'none';
+            const wrap = document.getElementById('arSearch-wrap');
+            if (wrap) wrap.classList.toggle('has-value', !!(el && el.value.trim()));
             if (typeof render === 'function') render();
         }
         function resetArSearch() {
             const el = document.getElementById('searchBox');
             if (el) el.value = '';
-            const btn = document.getElementById('arSearchReset');
-            if (btn) btn.style.display = 'none';
+            const wrap = document.getElementById('arSearch-wrap');
+            if (wrap) wrap.classList.remove('has-value');
             if (typeof render === 'function') render();
             if (el) el.focus();
         }
@@ -6301,10 +6334,19 @@ let anoRebuildTimer = null;
 let anoIsRebuilding = false;
 
 function anoSetCat(cat) {
+  // Klik kartu yang sama lagi → kembali ke Semua
+  if (cat && cat !== 'semua' && String(anoActiveCat) === String(cat)) {
+    cat = 'semua';
+  }
   anoActiveCat = cat;
   document.querySelectorAll('#anoCatPills .tabbtn').forEach(b => {
     b.classList.toggle('active', b.dataset.ano === cat);
   });
+  document.querySelectorAll('#anoSummary .ano-card').forEach(c => {
+    c.classList.toggle('active-cat', cat !== 'semua' && String(c.dataset.k) === String(cat));
+  });
+  const showAll = document.getElementById('anoShowAllBtn');
+  if (showAll) showAll.style.display = (cat && cat !== 'semua') ? 'inline-block' : 'none';
   anoRender();
 }
 
