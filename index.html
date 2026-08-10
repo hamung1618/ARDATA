@@ -2081,13 +2081,141 @@ body.dark-mode #anoDetailActions { background: #0f1c2e; border-top-color: #24384
 body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { background: #14243a !important; border-color: #24384f !important; }
 
 
-    </style>
+    
+/* ===== Toast notifications (pengganti alert) ===== */
+.toast-container {
+  position: fixed;
+  bottom: 20px;
+  right: 20px;
+  z-index: 99999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+  max-width: min(420px, calc(100vw - 32px));
+}
+.toast {
+  pointer-events: auto;
+  background: #0f2942;
+  color: #f8fafc;
+  padding: 12px 16px;
+  border-radius: 10px;
+  box-shadow: 0 8px 28px rgba(15,41,66,0.35);
+  font-size: 0.82rem;
+  line-height: 1.45;
+  white-space: pre-line;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  opacity: 0;
+  transform: translateY(12px);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  border-left: 4px solid #3b82f6;
+  max-height: 240px;
+  overflow-y: auto;
+}
+.toast.show {
+  opacity: 1;
+  transform: translateY(0);
+}
+.toast.hide {
+  opacity: 0;
+  transform: translateY(8px);
+}
+.toast.toast-success { border-left-color: #22c55e; background: #0f3d2e; }
+.toast.toast-error { border-left-color: #ef4444; background: #3f1515; }
+.toast.toast-warn { border-left-color: #f59e0b; background: #3d2e0f; }
+.toast.toast-info { border-left-color: #3b82f6; }
+.toast-icon { flex-shrink: 0; font-size: 1rem; line-height: 1.3; }
+.toast-msg { flex: 1; min-width: 0; }
+.toast-close {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  color: rgba(255,255,255,0.65);
+  cursor: pointer;
+  font-size: 1rem;
+  padding: 0 2px;
+  line-height: 1;
+}
+.toast-close:hover { color: #fff; }
+body.dark-mode .toast { box-shadow: 0 8px 28px rgba(0,0,0,0.5); }
+
+</style>
 
 <link rel="preconnect" href="https://fonts.googleapis.com/">
 <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin="">
 <link href="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/css2" rel="stylesheet">
 <script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx.full.min.js.download"></script>
 <script>
+
+/* ===== Toast API (pengganti alert) ===== */
+function showToast(message, type, duration) {
+  type = type || 'info';
+  duration = (duration == null) ? 3200 : duration;
+  var msg = (message == null) ? '' : String(message);
+  var container = document.getElementById('toastContainer');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toastContainer';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+  var icons = { success: '✅', error: '❌', warn: '⚠️', info: 'ℹ️' };
+  var el = document.createElement('div');
+  el.className = 'toast toast-' + type;
+  el.innerHTML = '<span class="toast-icon">' + (icons[type] || icons.info) + '</span>' +
+    '<span class="toast-msg"></span>' +
+    '<button type="button" class="toast-close" aria-label="Tutup">×</button>';
+  el.querySelector('.toast-msg').textContent = msg;
+  var closeBtn = el.querySelector('.toast-close');
+  var removeToast = function() {
+    el.classList.remove('show');
+    el.classList.add('hide');
+    setTimeout(function() { if (el.parentNode) el.parentNode.removeChild(el); }, 240);
+  };
+  closeBtn.addEventListener('click', removeToast);
+  container.appendChild(el);
+  requestAnimationFrame(function() { el.classList.add('show'); });
+  if (duration > 0) {
+    setTimeout(removeToast, duration);
+  }
+  return el;
+}
+
+/* Heuristik tipe toast dari isi pesan */
+function _toastTypeFromMsg(msg) {
+  var s = String(msg || '').toLowerCase();
+  if (/gagal|error|rusak|tidak bisa|wajib|silakan pilih|belum ada|tidak ada data|dibatalkan|tidak valid|mohon lengkapi|belum siap|file hilang|library excel belum/.test(s)) return 'error';
+  if (/berhasil|selesai|disimpan|dipulihkan|diganti|ditambahkan|dikirim/.test(s)) return 'success';
+  if (/peringatan|hati-hati|pastikan/.test(s)) return 'warn';
+  return 'info';
+}
+
+/* Override alert native → toast (non-blocking) */
+(function() {
+  var _nativeAlert = window.alert;
+  window.alert = function(message) {
+    try {
+      showToast(message, _toastTypeFromMsg(message), 3800);
+    } catch (e) {
+      if (typeof _nativeAlert === 'function') _nativeAlert(message);
+    }
+  };
+})();
+
+
+/** Set tbody content via <template> + DocumentFragment (lebih halus daripada innerHTML langsung) */
+function setTbodyHTML(tbody, htmlStr) {
+  if (!tbody) return;
+  var t = document.createElement('template');
+  t.innerHTML = htmlStr;
+  tbody.replaceChildren(t.content);
+}
+
+
+
+
 /* Fallback jika CDN sheetjs gagal */
 (function(){
   function needXlsx(){ return typeof XLSX === 'undefined'; }
@@ -2102,6 +2230,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 </script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx.full.min(1).js.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx.full(1).min.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx(1).full.download"></script>
 </head>
 <body>
+<div class="toast-container" id="toastContainer" aria-live="polite" aria-atomic="true"></div>
     <div class="container">
         <div class="header">
             <div class="header-title">
@@ -2855,15 +2984,17 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 
         <div class="tab-panel" id="tab-fix">
           <div class="ano-wrap">
-            <div class="ano-summary" id="fixSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px;">
-              <div class="ano-card fix-card" data-k="tempo" onclick="fixSetCat('tempo')"><div class="ano-card-l">Tempo + AR ada</div><div class="ano-card-v" id="fixCtempo">0</div></div>
-              <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat('cash')"><div class="ano-card-l">Cash + Uang Masuk</div><div class="ano-card-v" id="fixCcash">0</div></div>
-              <div class="ano-card fix-card" data-k="lunas" onclick="fixSetCat('lunas')"><div class="ano-card-l">AR sudah lunas</div><div class="ano-card-v" id="fixClunas">0</div></div>
-              <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat('lengkap')"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">0</div></div>
-            </div>
-
-            <div class="ano-toolbar-below">
-              <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            <div class="table-toolbar" style="margin-bottom:10px;">
+              <div class="toolbar-left" style="flex-wrap:wrap;gap:8px;">
+                <div class="status-pills" id="fixCatPills">
+                  <button type="button" class="tabbtn active" data-fix="semua" onclick="fixSetCat('semua')">Semua</button>
+                  <button type="button" class="tabbtn" data-fix="tempo" onclick="fixSetCat('tempo')">Tempo + AR ada</button>
+                  <button type="button" class="tabbtn" data-fix="cash" onclick="fixSetCat('cash')">Cash + Uang Masuk</button>
+                  <button type="button" class="tabbtn" data-fix="lunas" onclick="fixSetCat('lunas')">AR sudah lunas</button>
+                  <button type="button" class="tabbtn" data-fix="lengkap" onclick="fixSetCat('lengkap')">Lengkap (PJ+AR+UM)</button>
+                </div>
+              </div>
+              <div class="toolbar-actions">
                 <div class="quick-faktur" id="fixSearch-wrap">
                   <span class="quick-faktur-icon">🔍</span>
                   <input type="text" id="fixSearch" class="quick-faktur-input" placeholder="Cari faktur / toko / sales..." oninput="onFixSearchInput()">
@@ -2896,15 +3027,21 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                   <option value="—">Tanpa sumber AR</option>
                   </select>
                 </div>
-                <button type="button" class="ano-show-all" id="fixShowAllBtn" onclick="fixSetCat('semua')" style="display:none;">✕ Tampilkan semua</button>
-              </div>
-              <div class="dropdown ano-menu-wrap">
-                <button type="button" class="btn btn-secondary" onclick="fixToggleMenu()">⚙️ Aksi ▾</button>
-                <div class="dropdown-menu" id="fixMenuDd" style="right:0;left:auto;min-width:200px;">
-                  <button type="button" class="um-menu-item" onclick="fixRebuild(true); fixCloseMenu();">🔄 Periksa ulang</button>
-                  <button type="button" class="um-menu-item" onclick="fixExportCSV(); fixCloseMenu();">📄 Export CSV</button>
+                <div class="dropdown ano-menu-wrap">
+                  <button type="button" class="btn btn-secondary" onclick="fixToggleMenu()">⚙️ Aksi ▾</button>
+                  <div class="dropdown-menu" id="fixMenuDd" style="right:0;left:auto;min-width:200px;">
+                    <button type="button" class="um-menu-item" onclick="fixRebuild(true); fixCloseMenu();">🔄 Periksa ulang</button>
+                    <button type="button" class="um-menu-item" onclick="fixExportCSV(); fixCloseMenu();">📄 Export CSV</button>
+                  </div>
                 </div>
               </div>
+            </div>
+
+            <div class="ano-summary" id="fixSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
+              <div class="ano-card fix-card" data-k="tempo" onclick="fixSetCat('tempo')"><div class="ano-card-l">Tempo + AR ada</div><div class="ano-card-v" id="fixCtempo">0</div></div>
+              <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat('cash')"><div class="ano-card-l">Cash + Uang Masuk</div><div class="ano-card-v" id="fixCcash">0</div></div>
+              <div class="ano-card fix-card" data-k="lunas" onclick="fixSetCat('lunas')"><div class="ano-card-l">AR sudah lunas</div><div class="ano-card-v" id="fixClunas">0</div></div>
+              <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat('lengkap')"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">0</div></div>
             </div>
 
             <!-- Panel Detail Faktur (inline, di bawah cards ringkasan) -->
@@ -4984,7 +5121,7 @@ function arRenderVisible() {
   if (botPad > 0) {
     html += '<tr class="fix-pad"><td colspan="13" style="height:' + botPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
   }
-  tbody.innerHTML = html;
+  setTbodyHTML(tbody, html);
 }
 
 // ---------- Input Manual Modal ----------
@@ -6250,7 +6387,7 @@ function umRenderVisible() {
   if (botPad > 0) {
     html += '<tr class="fix-pad"><td colspan="13" style="height:' + botPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
   }
-  tbody.innerHTML = html;
+  setTbodyHTML(tbody, html);
 }
 
 function umOpenFakturModal(faktur) {
@@ -6702,16 +6839,10 @@ document.addEventListener('click', function(e) {
 });
 
 function fixSetCat(cat) {
-  // Klik kartu yang sama lagi → kembali ke Semua
-  if (cat && cat !== 'semua' && String(fixActiveCat) === String(cat)) {
-    cat = 'semua';
-  }
   fixActiveCat = cat || 'semua';
-  document.querySelectorAll('#fixSummary .ano-card, #fixSummary .fix-card').forEach(c => {
-    c.classList.toggle('active-cat', fixActiveCat !== 'semua' && String(c.dataset.k) === String(fixActiveCat));
+  document.querySelectorAll('#fixCatPills .tabbtn').forEach(b => {
+    b.classList.toggle('active', b.dataset.fix === fixActiveCat);
   });
-  const showAll = document.getElementById('fixShowAllBtn');
-  if (showAll) showAll.style.display = (fixActiveCat && fixActiveCat !== 'semua') ? '' : 'none';
   fixApplyFilter();
 }
 
@@ -6954,7 +7085,7 @@ function fixRenderVisible() {
   if (botPad > 0) {
     html += '<tr class="fix-pad"><td colspan="13" style="height:' + botPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
   }
-  tbody.innerHTML = html;
+  setTbodyHTML(tbody, html);
 }
 
 function fixExportCSV() {
@@ -6998,6 +7129,14 @@ function anoScheduleRebuild(force) {
     clearTimeout(anoRebuildTimer);
     anoRebuildTimer = null;
   }
+  // batalkan idle callback sebelumnya jika ada
+  if (typeof anoIdleHandle !== 'undefined' && anoIdleHandle != null) {
+    try {
+      if (typeof cancelIdleCallback === 'function') cancelIdleCallback(anoIdleHandle);
+      else clearTimeout(anoIdleHandle);
+    } catch (_) {}
+    anoIdleHandle = null;
+  }
   const fp = anoDataFingerprint();
   if (!force && fp === anoLastFingerprint && anoFindings) {
     // data belum berubah — cukup render ulang (cepat)
@@ -7005,12 +7144,23 @@ function anoScheduleRebuild(force) {
     return;
   }
   anoShowBusy(true);
-  // biarkan tab dulu ter-paint, baru hitung di tick berikutnya
-  anoRebuildTimer = setTimeout(function() {
+  // biarkan tab dulu ter-paint, baru hitung di idle time (atau timeout fallback)
+  const run = function() {
     anoRebuildTimer = null;
+    anoIdleHandle = null;
     try { anoRebuild(force); } catch (e) { console.error('anoRebuild', e); }
-  }, 30);
+  };
+  // force (klik "Periksa ulang"): delay singkat agar busy indicator sempat tampil
+  // auto-rebuild: requestIdleCallback agar UI tetap responsif
+  if (force) {
+    anoRebuildTimer = setTimeout(run, 16);
+  } else if (typeof requestIdleCallback === 'function') {
+    anoIdleHandle = requestIdleCallback(run, { timeout: 800 });
+  } else {
+    anoRebuildTimer = setTimeout(run, 30);
+  }
 }
+let anoIdleHandle = null;
 
 function anoUmSettled(u) {
   // Anggap "lunas" jika status eksplisit LUNAS, ATAU secara nominal bayar sudah
@@ -7391,6 +7541,7 @@ function anoRender() {
   anoRenderVisible();
 }
 
+
 function anoRenderVisible() {
   const tbody = document.getElementById('anoTbody');
   const scroller = document.getElementById('anoScroll');
@@ -7440,7 +7591,7 @@ function anoRenderVisible() {
   if (botPad > 0) {
     html += '<tr class="fix-pad"><td colspan="14" style="height:' + botPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
   }
-  tbody.innerHTML = html;
+  setTbodyHTML(tbody, html);
 }
 
 function anoCloseDetail() {
