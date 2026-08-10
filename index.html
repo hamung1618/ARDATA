@@ -1569,7 +1569,57 @@ body.dark-mode .slot-choice label:has(input:checked) {
     border-color: #334155;
   }
 
+  .colChk { width: 34px; text-align: center; }
+  .colChk input[type="checkbox"] { width: 16px; height: 16px; cursor: pointer; }
+
+  /* ===== Cetak Tagihan Terpilih (mirip kertas tagihan sales) ===== */
+  #tagihanPrintArea { display: none; }
+  .tgh-block { page-break-after: always; font-family: 'IBM Plex Mono', monospace; color: #111; }
+  .tgh-block:last-child { page-break-after: auto; }
+  .tgh-headinfo { border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
+  .tgh-headinfo td { padding: 1px 4px; }
+  .tgh-headinfo .tgh-lbl { font-weight: 700; white-space: nowrap; }
+  .tgh-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px; }
+  .tgh-table th, .tgh-table td { border: 1px solid #333; padding: 3px 4px; }
+  .tgh-table thead th { background: #dbe4ee; text-align: center; font-weight: 700; }
+  .tgh-table .tgh-c { text-align: center; }
+  .tgh-table .tgh-r { text-align: right; }
+  .tgh-table .tgh-pay { width: 60px; }
+  .tgh-total-row td { background: #f1f5f9; }
+  .tgh-footinfo { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 22px; }
+  .tgh-footinfo td { padding: 2px 4px; vertical-align: top; }
+  .tgh-foot-left { width: 55%; }
+  .tgh-foot-right { white-space: nowrap; }
+  .tgh-disetorkan { border-top: 1.5px solid #111; padding-top: 4px !important; }
+  .tgh-sign { width: 100%; border-collapse: collapse; font-size: 11px; margin-top: 10px; }
+  .tgh-sign td { width: 33%; text-align: center; padding: 2px; }
+
   @media print{
+    body.printing-tagihan .header,
+    body.printing-tagihan .tab-nav,
+    body.printing-tagihan .filter-panel,
+    body.printing-tagihan .filter-popover,
+    body.printing-tagihan .table-toolbar,
+    body.printing-tagihan .pagination,
+    body.printing-tagihan .table-header,
+    body.printing-tagihan .modal-overlay,
+    body.printing-tagihan .transfer-modal-overlay,
+    body.printing-tagihan #tab-penjualan,
+    body.printing-tagihan #tab-ar,
+    body.printing-tagihan #tab-anomali,
+    body.printing-tagihan #tab-fix,
+    body.printing-tagihan .cover,
+    body.printing-tagihan .periode-info,
+    body.printing-tagihan .controls,
+    body.printing-tagihan .count-note,
+    body.printing-tagihan .totals,
+    body.printing-tagihan footer,
+    body.printing-tagihan #arSelBar {
+      display: none !important;
+    }
+    body.printing-tagihan { background: #fff !important; }
+    body.printing-tagihan #tagihanPrintArea { display: block !important; }
+    .print-hide-col { display: none !important; }
     @page {
       size: A4 landscape;
       margin: 8mm 6mm;
@@ -2420,6 +2470,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 <div class="wrap">
 
   <div id="printHeader" class="print-only"></div>
+  <div id="tagihanPrintArea" style="display:none;"></div>
 
   <!-- ===== CONTROLS ===== -->
   <div class="controls">
@@ -2478,6 +2529,9 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         <div class="menu-item" id="btnCetakMenu" role="button">
           <span>🖨️ Cetak</span>
         </div>
+        <div class="menu-item" id="btnCetakTagihanMenu" role="button">
+          <span>🧾 Cetak Tagihan Terpilih</span>
+        </div>
         <div style="height:1px;background:rgba(255,255,255,0.12);margin:4px 6px;"></div>
         <div class="menu-item menu-item-danger" id="btnHapusSemuaAr" role="button" title="Hapus seluruh data AR Minyak &amp; Rupa-rupa">
           <span>🗑️ Hapus semua data AR</span>
@@ -2487,12 +2541,18 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
     <button class="tabbtn btn-cetak" id="btnCetak" type="button" style="display:none;" aria-hidden="true">Cetak</button>
   </div>
   <div class="count-note" id="countNote">Belum ada data. Upload file atau input manual lewat menu untuk mulai.</div>
+  <div id="arSelBar" style="display:none;align-items:center;gap:10px;margin:6px 0 2px;padding:8px 12px;background:#fff7ed;border:1px solid #fdba74;border-radius:8px;font-size:0.85rem;color:#7c2d12;">
+    <span id="arSelCount">0 faktur dipilih</span>
+    <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;" onclick="printTagihanTerpilih()">🧾 Cetak Tagihan Terpilih</button>
+    <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;background:#fff;" onclick="clearArSelection()">Batal pilih</button>
+  </div>
 
   <!-- ===== TABLE ===== -->
   <div class="tablewrap" id="arScroll" onscroll="arOnScroll()">
     <table id="dataTable" class="show-umur">
       <thead>
         <tr>
+          <th class="colChk print-hide-col"><input type="checkbox" id="chkArAll" title="Pilih semua (hasil filter saat ini)" onchange="toggleAllArChk(this)"></th>
           <th>No</th>
           <th>Sales</th>
           <th>No Faktur</th>
@@ -4888,6 +4948,169 @@ const AR_ROW_H = 36;
 const AR_OVERSCAN = 8;
 let arScrollRaf = 0;
 
+// ---------- Seleksi baris (untuk cetak tagihan) ----------
+let arSelectedKeys = new Set();
+function arKey(r){ return r.noFaktur + '|' + r.sumber + '|' + r.toko; }
+
+function toggleArChk(key, checked){
+  if (checked) arSelectedKeys.add(key); else arSelectedKeys.delete(key);
+  updateArSelBar();
+  const allBox = document.getElementById('chkArAll');
+  if (allBox) {
+    const visibleKeys = arFilteredRows.map(arKey);
+    allBox.checked = visibleKeys.length > 0 && visibleKeys.every(k => arSelectedKeys.has(k));
+  }
+}
+
+function toggleAllArChk(box){
+  const keys = arFilteredRows.map(arKey);
+  if (box.checked) keys.forEach(k => arSelectedKeys.add(k));
+  else keys.forEach(k => arSelectedKeys.delete(k));
+  arRenderVisible();
+  updateArSelBar();
+}
+
+function clearArSelection(){
+  arSelectedKeys.clear();
+  const allBox = document.getElementById('chkArAll');
+  if (allBox) allBox.checked = false;
+  arRenderVisible();
+  updateArSelBar();
+}
+
+function updateArSelBar(){
+  const bar = document.getElementById('arSelBar');
+  const countEl = document.getElementById('arSelCount');
+  if (!bar || !countEl) return;
+  const n = arSelectedKeys.size;
+  if (n > 0) {
+    bar.style.display = 'flex';
+    countEl.textContent = n + ' faktur dipilih';
+  } else {
+    bar.style.display = 'none';
+  }
+}
+
+function getArSelectedRows(){
+  return allRows().filter(r => arSelectedKeys.has(arKey(r)));
+}
+
+function buildTagihanHtmlForSales(salesName, rows){
+  const today = todayStr2();
+  let totalTagihan = 0;
+  let bodyRows = '';
+  rows.forEach((r, i) => {
+    const tagihan = r.sisaRiil != null ? r.sisaRiil : r.nominal;
+    totalTagihan += tagihan;
+    const ket = String(r.sumber || '').toUpperCase().replace('RUPA-RUPA', 'RUPA2');
+    bodyRows += '<tr>' +
+      '<td class="tgh-c">' + (i + 1) + '</td>' +
+      '<td class="tgh-c">' + escapeHtml(r.noFaktur) + '</td>' +
+      '<td>' + escapeHtml(r.toko) + '</td>' +
+      '<td>' + escapeHtml(r.alamat || '') + '</td>' +
+      '<td class="tgh-c">' + escapeHtml(r.sales) + '</td>' +
+      '<td class="tgh-c">' + fmtDate(r.tglFaktur) + '</td>' +
+      '<td class="tgh-c">' + fmtDate(r.tglJatuhTempo) + '</td>' +
+      '<td class="tgh-r">' + fmtRpPlain(tagihan) + '</td>' +
+      '<td class="tgh-pay"></td>' +
+      '<td class="tgh-pay"></td>' +
+      '<td class="tgh-c">' + escapeHtml(ket) + '</td>' +
+    '</tr>';
+  });
+  return `
+  <div class="tgh-block">
+    <table class="tgh-headinfo">
+      <tr><td class="tgh-lbl">SALESMAN/DROPING</td><td>: ${escapeHtml(salesName)}</td></tr>
+      <tr><td class="tgh-lbl">TANGGAL</td><td>: ${today}</td></tr>
+    </table>
+    <table class="tgh-table">
+      <thead>
+        <tr>
+          <th rowspan="2">NO</th>
+          <th rowspan="2">NO FAKTUR</th>
+          <th rowspan="2">NAMA OUTLET</th>
+          <th rowspan="2">ALAMAT</th>
+          <th rowspan="2">SALESMAN</th>
+          <th rowspan="2">TGL NOTA</th>
+          <th rowspan="2">TGL TEMPO</th>
+          <th rowspan="2">TAGIHAN</th>
+          <th colspan="2">PEMBAYARAN</th>
+          <th rowspan="2">KET</th>
+        </tr>
+        <tr><th>CASH</th><th>TRANSFER</th></tr>
+      </thead>
+      <tbody>
+        ${bodyRows}
+        <tr class="tgh-total-row">
+          <td colspan="7" class="tgh-c"><b>TOTAL</b></td>
+          <td class="tgh-r"><b>${fmtRpPlain(totalTagihan)}</b></td>
+          <td class="tgh-pay">-</td>
+          <td class="tgh-pay"></td>
+          <td></td>
+        </tr>
+      </tbody>
+    </table>
+    <table class="tgh-footinfo">
+      <tr>
+        <td class="tgh-foot-left" rowspan="5"></td>
+        <td class="tgh-foot-right">TOTAL SETORAN&nbsp;&nbsp;: Rp ....................................</td>
+      </tr>
+      <tr><td class="tgh-foot-right">OPERASIONAL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</td></tr>
+      <tr><td class="tgh-foot-right">LAIN LAIN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</td></tr>
+      <tr><td class="tgh-foot-right">&nbsp;</td></tr>
+      <tr><td class="tgh-foot-right tgh-disetorkan">DISETORKAN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</td></tr>
+    </table>
+    <table class="tgh-sign">
+      <tr>
+        <td class="tgh-c">SALESMAN/DROPING</td>
+        <td></td>
+        <td class="tgh-c">Adm KASIR</td>
+      </tr>
+      <tr><td style="height:50px;"></td><td></td><td></td></tr>
+      <tr>
+        <td class="tgh-c">( ${escapeHtml(salesName)} )</td>
+        <td></td>
+        <td class="tgh-c">( .......................... )</td>
+      </tr>
+    </table>
+  </div>`;
+}
+
+function todayStr2(){
+  const d = new Date();
+  const dd = String(d.getDate()).padStart(2,'0');
+  const mm = String(d.getMonth()+1).padStart(2,'0');
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+function fmtRpPlain(n){ n = Number(n)||0; return Math.round(n).toLocaleString('id-ID'); }
+
+function printTagihanTerpilih(){
+  const rows = getArSelectedRows();
+  if (rows.length === 0){
+    alert('Belum ada faktur yang dicentang. Centang dulu faktur yang mau ditagih di kolom paling kiri tabel.');
+    return;
+  }
+  const bySales = {};
+  const order = [];
+  rows.forEach(r => {
+    const name = r.sales || '(Tanpa Sales)';
+    if (!bySales[name]) { bySales[name] = []; order.push(name); }
+    bySales[name].push(r);
+  });
+  let html = '';
+  order.forEach(name => { html += buildTagihanHtmlForSales(name, bySales[name]); });
+  const area = document.getElementById('tagihanPrintArea');
+  area.innerHTML = html;
+  document.body.classList.add('printing-tagihan');
+  setTimeout(() => {
+    window.print();
+  }, 50);
+}
+
+window.addEventListener('afterprint', () => {
+  document.body.classList.remove('printing-tagihan');
+});
+
 function arOnScroll() {
   if (arScrollRaf) return;
   arScrollRaf = requestAnimationFrame(function() {
@@ -4960,12 +5183,15 @@ function arRenderVisible() {
   const botPad = (n - end) * AR_ROW_H;
   let html = '';
   if (topPad > 0) {
-    html += '<tr class="fix-pad"><td colspan="13" style="height:' + topPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
+    html += '<tr class="fix-pad"><td colspan="14" style="height:' + topPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
   }
   for (let idx = start; idx < end; idx++) {
     const r = filtered[idx];
     const umur = fmtUmur(umurPiutangHari(r.tglJatuhTempo));
+    const key = arKey(r);
+    const checked = arSelectedKeys.has(key) ? 'checked' : '';
     html += '<tr style="height:' + AR_ROW_H + 'px;">' +
+      '<td class="colChk print-hide-col"><input type="checkbox" ' + checked + ' onchange="toggleArChk(' + JSON.stringify(key) + ', this.checked)"></td>' +
       '<td>' + (idx + 1) + '</td>' +
       '<td>' + escapeHtml(r.sales) + '</td>' +
       '<td>' + escapeHtml(String(r.noFaktur)) + '</td>' +
@@ -4982,7 +5208,7 @@ function arRenderVisible() {
     '</tr>';
   }
   if (botPad > 0) {
-    html += '<tr class="fix-pad"><td colspan="13" style="height:' + botPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
+    html += '<tr class="fix-pad"><td colspan="14" style="height:' + botPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
   }
   tbody.innerHTML = html;
 }
@@ -5309,6 +5535,11 @@ function wireArMenuActions(){
     const real = document.getElementById('btnCetak');
     if (real) real.click();
     else window.print();
+  });
+  const cetakTagihanMenu = document.getElementById('btnCetakTagihanMenu');
+  if (cetakTagihanMenu) cetakTagihanMenu.addEventListener('click', () => {
+    closeMenu();
+    printTagihanTerpilih();
   });
   const hapusSemua = document.getElementById('btnHapusSemuaAr');
   if (hapusSemua) hapusSemua.addEventListener('click', () => {
