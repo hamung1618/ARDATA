@@ -4894,6 +4894,12 @@ document.getElementById('sumberFilter').addEventListener('change', render);
 document.getElementById('salesFilter').addEventListener('change', render);
 document.getElementById('searchBox').addEventListener('input', function(){ if(typeof onArSearchInput==='function') onArSearchInput(); else if(typeof render==='function') render(); })
 
+document.getElementById('tbody').addEventListener('change', function(e){
+  const chk = e.target.closest('input.arRowChk');
+  if (!chk) return;
+  toggleArChk(chk.dataset.arkey, chk.checked);
+});
+
 document.getElementById('btnCetak').addEventListener('click', () => {
   const catLabel = {semua:'Semua', belum:'Belum Lunas', titip:'Titip', lunas:'Sudah Lunas'}[activeCat];
   const sumberVal = document.getElementById('sumberFilter').value;
@@ -5191,7 +5197,7 @@ function arRenderVisible() {
     const key = arKey(r);
     const checked = arSelectedKeys.has(key) ? 'checked' : '';
     html += '<tr style="height:' + AR_ROW_H + 'px;">' +
-      '<td class="colChk print-hide-col"><input type="checkbox" ' + checked + ' onchange="toggleArChk(' + JSON.stringify(key) + ', this.checked)"></td>' +
+      '<td class="colChk print-hide-col"><input type="checkbox" class="arRowChk" data-arkey="' + escapeHtml(key) + '" ' + checked + '></td>' +
       '<td>' + (idx + 1) + '</td>' +
       '<td>' + escapeHtml(r.sales) + '</td>' +
       '<td>' + escapeHtml(String(r.noFaktur)) + '</td>' +
