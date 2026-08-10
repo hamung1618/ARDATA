@@ -1938,7 +1938,7 @@ body.dark-mode .um-badge-section { background: rgba(99,102,241,0.2); color: #a5b
 }
 body.dark-mode .ano-card { background: #14243a; border-color: #24384f; }
 .ano-card:hover { border-color: #3b82f6; box-shadow: 0 2px 8px rgba(59,130,246,0.15); }
-.ano-card-l { font-size: 0.68rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: .02em; }
+.ano-card-l { font-size: 0.68rem; color: #64748b; font-weight: 600; text-transform: none; letter-spacing: .01em; line-height: 1.25; }
 .ano-card-v { font-size: 1.25rem; font-weight: 700; color: #0f2942; margin-top: 2px; }
 body.dark-mode .ano-card-v { color: #e2e8f0; }
 .ano-card[data-k="1"] .ano-card-v { color: #dc2626; }
@@ -2189,7 +2189,8 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                             <button type="button" onclick="openExcelModal(); closeAllMenus();">📥 Download Excel</button>
                             <button type="button" onclick="exportToCSV(); closeAllMenus();">📄 Export CSV</button>
                             <button type="button" onclick="window.print(); closeAllMenus();">🖨️ Print</button>
-                            <button type="button" onclick="openDeleteModal(); closeAllMenus();">🗑️ Hapus Data</button>
+                            <button type="button" onclick="openDeleteModal(); closeAllMenus();">🗑️ Hapus Data (per bulan)</button>
+                            <button type="button" onclick="doDeleteAllPjData(); closeAllMenus();" style="color:#dc2626;">🗑️ Hapus SEMUA Data Penjualan</button>
                         </div>
                     </div>
                 </div>
@@ -7059,11 +7060,11 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               <div class="toolbar-left" style="flex-wrap:wrap;gap:8px;">
                 <div class="status-pills" id="anoCatPills">
                   <button type="button" class="tabbtn" data-ano="semua" onclick="anoSetCat(&#39;semua&#39;)">Semua</button>
-                  <button type="button" class="tabbtn" data-ano="1" onclick="anoSetCat(&#39;1&#39;)">1 · Tempo PJ, belum AR</button>
-                  <button type="button" class="tabbtn" data-ano="2" onclick="anoSetCat(&#39;2&#39;)">2 · Ada AR, tidak di PJ</button>
-                  <button type="button" class="tabbtn" data-ano="3" onclick="anoSetCat(&#39;3&#39;)">3 · Cash PJ / UM tempo</button>
-                  <button type="button" class="tabbtn" data-ano="4" onclick="anoSetCat(&#39;4&#39;)">4 · Status/nominal beda</button>
-                  <button type="button" class="tabbtn active" data-ano="5" onclick="anoSetCat(&#39;5&#39;)">5 · AR belum lunas, tidak di UM</button>
+                  <button type="button" class="tabbtn" data-ano="1" onclick="anoSetCat(&#39;1&#39;)">1 · TEMPO, belum ada di AR</button>
+                  <button type="button" class="tabbtn" data-ano="2" onclick="anoSetCat(&#39;2&#39;)">2 · Ada di AR, Tidak Ada di Penjualan</button>
+                  <button type="button" class="tabbtn" data-ano="3" onclick="anoSetCat(&#39;3&#39;)">3 · UM Piutang Tempo, Tidak Ada di AR</button>
+                  <button type="button" class="tabbtn" data-ano="4" onclick="anoSetCat(&#39;4&#39;)">4 · Status / Nominal AR vs UM beda</button>
+                  <button type="button" class="tabbtn active" data-ano="5" onclick="anoSetCat(&#39;5&#39;)">5 · AR belum lunas, Tidak ada U Masuk</button>
                 </div>
               </div>
               <div class="toolbar-actions">
@@ -7083,12 +7084,12 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               </div>
             </div>
 
-            <div class="ano-summary" id="anoSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
-              <div class="ano-card" data-k="1"><div class="ano-card-l">1 · Tempo PJ → AR</div><div class="ano-card-v" id="anoC1">109</div></div>
-              <div class="ano-card" data-k="2"><div class="ano-card-l">2 · AR tanpa PJ</div><div class="ano-card-v" id="anoC2">1</div></div>
-              <div class="ano-card" data-k="3"><div class="ano-card-l">3 · Cash/UM vs AR</div><div class="ano-card-v" id="anoC3">8</div></div>
-              <div class="ano-card" data-k="4"><div class="ano-card-l">4 · Status/nominal</div><div class="ano-card-v" id="anoC4">102</div></div>
-              <div class="ano-card" data-k="5"><div class="ano-card-l">5 · AR open, tdk di UM</div><div class="ano-card-v" id="anoC5">354</div></div>
+            <div class="ano-summary" id="anoSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px;">
+              <div class="ano-card" data-k="1"><div class="ano-card-l">1 · TEMPO, belum ada di AR</div><div class="ano-card-v" id="anoC1">109</div></div>
+              <div class="ano-card" data-k="2"><div class="ano-card-l">2 · Ada di AR, Tidak Ada di Penjualan</div><div class="ano-card-v" id="anoC2">1</div></div>
+              <div class="ano-card" data-k="3"><div class="ano-card-l">3 · UM Piutang Tempo, Tidak Ada di AR</div><div class="ano-card-v" id="anoC3">8</div></div>
+              <div class="ano-card" data-k="4"><div class="ano-card-l">4 · Status / Nominal AR vs UM beda</div><div class="ano-card-v" id="anoC4">102</div></div>
+              <div class="ano-card" data-k="5"><div class="ano-card-l">5 · AR belum lunas, Tidak ada U Masuk</div><div class="ano-card-v" id="anoC5">354</div></div>
             </div>
 
             <div class="result-info" id="anoResultInfo" style="margin-bottom:8px;" data-prev="Menampilkan 532 dari 532 anomali · PJ: 6967 baris · AR: 625 faktur · UM: 3621 baris · ⛔ exclude: April">Menampilkan 354 dari 574 anomali · PJ: 7050 baris · AR: 625 faktur · UM: 3657 baris · ⛔ exclude: April</div>
@@ -7381,10 +7382,15 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         }
 
         function formatPembayaran(val) {
-            // 0 = Cash, selain 0 = Tempo
+            // Cash: 0 / '0' / 'Cash' / 'Tunai'
+            // Tempo: angka hari > 0, atau teks 'Tempo' / 'Kredit' / dll
             if (val === '' || val === null || val === undefined) return '-';
+            const s = String(val).trim().toLowerCase();
+            if (s === '0' || s === 'cash' || s === 'tunai' || s === 'lunas') return 'Cash';
+            if (s === 'tempo' || s === 'kredit' || s === 'credit' || s === 'piutang') return 'Tempo';
             const n = Number(val);
-            if (isNaN(n) || n === 0) return 'Cash';
+            if (!isNaN(n)) return n === 0 ? 'Cash' : 'Tempo';
+            // teks lain yang tidak dikenal → jangan anggap Cash
             return 'Tempo';
         }
 
@@ -7520,6 +7526,31 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         document.getElementById('delete-modal').addEventListener('click', function(e) {
             if (e.target === this) closeDeleteModal();
         });
+
+        function doDeleteAllPjData() {
+            const n = (allData && allData.length) ? allData.length : 0;
+            if (n === 0) {
+                alert('Belum ada data penjualan untuk dihapus.');
+                return;
+            }
+            const konfirmasi = confirm(
+                'Hapus SEMUA data penjualan?\n\n' +
+                n.toLocaleString('id-ID') + ' baris akan dihapus permanen dari browser.\n\n' +
+                'Tindakan ini TIDAK dapat dibatalkan.\n\n' +
+                'Ketik OK hanya jika Anda sudah yakin (dan idealnya sudah backup Excel).'
+            );
+            if (!konfirmasi) return;
+            const konfirmasi2 = confirm('Konfirmasi sekali lagi: hapus SEMUA ' + n.toLocaleString('id-ID') + ' baris data penjualan?');
+            if (!konfirmasi2) return;
+
+            allData = [];
+            if (typeof rebuildAnomaliIndex === 'function') rebuildAnomaliIndex();
+            if (typeof populateFilters === 'function') populateFilters();
+            if (typeof applyFilters === 'function') applyFilters();
+            if (typeof updateHeaderSubtitle === 'function') updateHeaderSubtitle();
+            if (typeof savePjToStorage === 'function') savePjToStorage();
+            alert(n.toLocaleString('id-ID') + ' baris data penjualan berhasil dihapus.');
+        }
 
         function updateHeaderSubtitle() {
             if (allData.length === 0) return;
@@ -8173,8 +8204,19 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                 const customer = get('Customer') != null ? String(get('Customer')).trim() : '';
                 const alamat = get('Alamat') != null ? String(get('Alamat')).trim() : '';
                 let pembayaran = get('Pembayaran');
-                if (pembayaran === null || pembayaran === undefined || pembayaran === '') pembayaran = '0';
-                else pembayaran = String(pembayaran).trim();
+                if (pembayaran === null || pembayaran === undefined || pembayaran === '') {
+                    pembayaran = '0';
+                } else {
+                    const rawPay = String(pembayaran).trim();
+                    const low = rawPay.toLowerCase();
+                    if (low === 'cash' || low === 'tunai' || low === 'lunas') pembayaran = '0';
+                    else if (low === 'tempo' || low === 'kredit' || low === 'credit' || low === 'piutang') pembayaran = '14';
+                    else {
+                        const nPay = Number(rawPay);
+                        // angka hari tempo (atau 0 = cash) dipertahankan; teks lain → tempo default 14
+                        pembayaran = !isNaN(nPay) ? String(nPay) : '14';
+                    }
+                }
                 const hargaBeli = get('Harga Beli');
                 const hb = (hargaBeli === null || hargaBeli === undefined || hargaBeli === '') ? '' : pjNum(hargaBeli);
 
@@ -8409,7 +8451,9 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 
             // Default jatuh tempo = tgl faktur + 14 hari (Tempo) or same day (Cash)
             const pay = first.Pembayaran;
-            const isCash = (pay === '' || pay === null || Number(pay) === 0);
+            const isCash = (typeof formatPembayaran === 'function'
+                ? formatPembayaran(pay) === 'Cash'
+                : (pay === '' || pay === null || Number(pay) === 0));
             document.getElementById('transfer-sudah-bayar').value = isCash ? Math.round(nominal) : 0;
             document.getElementById('transfer-status').value = isCash ? 'SUDAH LUNAS' : 'BELUM LUNAS';
             // set jatuh tempo
