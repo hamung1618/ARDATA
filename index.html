@@ -2915,6 +2915,23 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat('lengkap')"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">0</div></div>
             </div>
 
+            <!-- Panel Detail Faktur (inline, di bawah cards ringkasan) -->
+            <div id="fixDetailPanel" style="display:none;border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden;box-shadow:0 2px 8px rgba(15,41,66,0.08);">
+              <div style="background:linear-gradient(135deg,var(--navy-900),var(--navy-700));color:#fff;padding:10px 14px;display:flex;align-items:center;justify-content:space-between;gap:8px;">
+                <h3 id="fixDetailTitle" style="margin:0;font-size:0.9rem;font-weight:700;">Detail Faktur</h3>
+                <button type="button" onclick="fixCloseDetail()" style="background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;width:26px;height:26px;border-radius:50%;cursor:pointer;font-size:0.95rem;line-height:1;">×</button>
+              </div>
+              <div id="fixDetailBody" style="padding:14px;max-height:560px;overflow-y:auto;"></div>
+              <div id="fixDetailActions" style="padding:12px 16px;border-top:1px solid #e2e8f0;background:#f8fafc;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+                <span style="font-size:0.75rem;color:#64748b;margin-right:4px;">Aksi:</span>
+                <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActPj" checked> Penjualan</label>
+                <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActAr" checked> AR</label>
+                <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActUm" checked> Uang Masuk</label>
+                <button type="button" class="btn btn-danger" style="margin-left:auto;" onclick="fixMoveToTrash()">🗑️ Pindah ke Sampah</button>
+                <button type="button" class="btn btn-secondary" onclick="fixCloseDetail()">Tutup</button>
+              </div>
+            </div>
+
             <div class="result-info" id="fixResultInfo" style="margin-bottom:8px;">Belum diperiksa. Buka tab ini atau klik Periksa ulang.</div>
 
             <div class="table-wrapper">
@@ -6920,10 +6937,10 @@ function fixRenderVisible() {
   for (let i = start; i < end; i++) {
     const r = rows[i];
     const fk = esc(String(r.noFaktur)).replace(/'/g, "\\'");
-    html += '<tr style="cursor:pointer;height:' + FIX_ROW_H + 'px;" onclick="anoOpenDetail(\'' + fk + '\')">' +
+    html += '<tr style="cursor:pointer;height:' + FIX_ROW_H + 'px;" onclick="fixOpenDetail(\'' + fk + '\')">' +
       '<td>' + (i + 1) + '</td>' +
       '<td>' + fixBadge(r.cat) + '</td>' +
-      '<td class="num"><a href="javascript:void(0)" class="faktur-link" onclick="event.stopPropagation();anoOpenDetail(\'' + fk + '\')">' + esc(r.noFaktur) + '</a></td>' +
+      '<td class="num"><a href="javascript:void(0)" class="faktur-link" onclick="event.stopPropagation();fixOpenDetail(\'' + fk + '\')">' + esc(r.noFaktur) + '</a></td>' +
       '<td>' + esc(r.tglFaktur || '—') + '</td>' +
       '<td>' + esc(r.sales) + '</td>' +
       '<td>' + esc(r.toko) + '</td>' +
@@ -7161,7 +7178,14 @@ function anoRebuild(force) {
       const arPay = a.totalPayment || 0;
       const umPay = u.totalBayar || 0;
       const ANO_NOMINAL_TOLERANCE = 1000; // toleransi selisih pembulatan (Rp)
-      if (Math.abs(arPay - umPay) > ANO_NOMINAL_TOLERANCE && (arPay > 0 || umPay > 0)) {
+      // Kolom "Sudah Bayar" di sumber AR kadang tidak ikut ter-update / tidak menjumlahkan
+      // semua pembayaran di Uang Masuk (mis. faktur dibayar 2x, tapi AR hanya mencatat
+      // pembayaran pertama). Jika AR sudah berstatus LUNAS DAN total bayar UM sudah
+      // menutup nominal AR (selisih dalam toleransi), maka data sudah selaras —
+      // jangan dianggap anomali walau angka "Sudah Bayar" di AR sendiri berbeda.
+      const umCoversNominal = a.nominal > 0 && umPay >= (a.nominal - ANO_NOMINAL_TOLERANCE);
+      const arUmSelaras = a.kategori === 'lunas' && umCoversNominal;
+      if (!arUmSelaras && Math.abs(arPay - umPay) > ANO_NOMINAL_TOLERANCE && (arPay > 0 || umPay > 0)) {
         issues.push('Bayar AR ' + Math.round(arPay).toLocaleString('id-ID') + ' ≠ UM ' + Math.round(umPay).toLocaleString('id-ID'));
       }
       if (u.tagihan > 0 && a.nominal > 0 && Math.abs(u.tagihan - a.nominal) > ANO_NOMINAL_TOLERANCE) {
@@ -7423,8 +7447,7 @@ function anoCloseDetail() {
   if (m) m.classList.remove('show');
 }
 
-function anoOpenDetail(noFaktur, jenisHint) {
-  _anoDetailFaktur = noFaktur;
+function anoBuildDetailHtml(noFaktur, jenisHint) {
   const fKey = anoNormFaktur(noFaktur);
   const pjLines = (typeof allData !== 'undefined' ? allData : []).filter(r => anoNormFaktur(r['No.Faktur']) === fKey);
   const arRows = [];
@@ -7439,9 +7462,6 @@ function anoOpenDetail(noFaktur, jenisHint) {
   }
   const umRows = (typeof umAllRows !== 'undefined' ? umAllRows : []).filter(r => anoNormFaktur(r.faktur) === fKey);
   const related = anoFindings.filter(x => anoNormFaktur(x.noFaktur) === fKey);
-
-  const title = document.getElementById('anoDetailTitle');
-  if (title) title.textContent = 'Detail Faktur · ' + noFaktur;
 
   // Header summary
   let html = '';
@@ -7563,18 +7583,54 @@ function anoOpenDetail(noFaktur, jenisHint) {
   }
   html += '</div>';
 
-  document.getElementById('anoDetailBody').innerHTML = html;
-  // set action checkboxes by availability
-  const hasPj = pjLines.length > 0;
-  const hasAr = arRows.length > 0;
-  const hasUm = umRows.length > 0;
-  const elPj = document.getElementById('anoActPj');
-  const elAr = document.getElementById('anoActAr');
-  const elUm = document.getElementById('anoActUm');
+  return {
+    titleText: 'Detail Faktur · ' + noFaktur,
+    html: html,
+    hasPj: pjLines.length > 0,
+    hasAr: arRows.length > 0,
+    hasUm: umRows.length > 0
+  };
+}
+
+// Isi sepasang checkbox aksi (Penjualan/AR/Uang Masuk) sesuai ketersediaan data
+function anoFillActionChecks(prefix, hasPj, hasAr, hasUm) {
+  const elPj = document.getElementById(prefix + 'ActPj');
+  const elAr = document.getElementById(prefix + 'ActAr');
+  const elUm = document.getElementById(prefix + 'ActUm');
   if (elPj) { elPj.checked = hasPj; elPj.disabled = !hasPj; elPj.parentElement.style.opacity = hasPj ? '1' : '0.4'; }
   if (elAr) { elAr.checked = hasAr; elAr.disabled = !hasAr; elAr.parentElement.style.opacity = hasAr ? '1' : '0.4'; }
   if (elUm) { elUm.checked = hasUm; elUm.disabled = !hasUm; elUm.parentElement.style.opacity = hasUm ? '1' : '0.4'; }
+}
+
+// Dipakai oleh tab "DATA ANOMALI" — tampil sebagai modal popup (perilaku lama)
+function anoOpenDetail(noFaktur, jenisHint) {
+  _anoDetailFaktur = noFaktur;
+  const d = anoBuildDetailHtml(noFaktur, jenisHint);
+  const title = document.getElementById('anoDetailTitle');
+  if (title) title.textContent = d.titleText;
+  document.getElementById('anoDetailBody').innerHTML = d.html;
+  anoFillActionChecks('ano', d.hasPj, d.hasAr, d.hasUm);
   document.getElementById('anoDetailModal').classList.add('show');
+}
+
+// Dipakai oleh tab "DATA FIX" — tampil sebagai panel inline di bawah cards ringkasan
+function fixOpenDetail(noFaktur, jenisHint) {
+  _anoDetailFaktur = noFaktur;
+  const d = anoBuildDetailHtml(noFaktur, jenisHint);
+  const title = document.getElementById('fixDetailTitle');
+  if (title) title.textContent = d.titleText;
+  document.getElementById('fixDetailBody').innerHTML = d.html;
+  anoFillActionChecks('fix', d.hasPj, d.hasAr, d.hasUm);
+  const panel = document.getElementById('fixDetailPanel');
+  if (panel) {
+    panel.style.display = 'block';
+    panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+}
+
+function fixCloseDetail() {
+  const panel = document.getElementById('fixDetailPanel');
+  if (panel) panel.style.display = 'none';
 }
 
 // =====================================================================
@@ -7649,12 +7705,25 @@ function trashApplyPenjualanExclusions() {
 const _origAnoOpenDetail = null; // patched below by wrapping show
 
 function anoMoveToTrash() {
+  anoMoveToTrashCore('ano', anoCloseDetail, function() {
+    if (typeof anoScheduleRebuild === 'function') anoScheduleRebuild(true); else if (typeof anoRebuild === 'function') anoRebuild(true);
+  });
+}
+
+function fixMoveToTrash() {
+  anoMoveToTrashCore('fix', fixCloseDetail, function() {
+    if (typeof fixRebuild === 'function') fixRebuild(true);
+    else if (typeof anoScheduleRebuild === 'function') anoScheduleRebuild(true);
+  });
+}
+
+function anoMoveToTrashCore(prefix, onClose, onRefresh) {
   const noFaktur = _anoDetailFaktur;
   if (!noFaktur) { alert('Faktur tidak dikenali.'); return; }
   const fKey = anoNormFaktur(noFaktur);
-  const doPj = document.getElementById('anoActPj')?.checked;
-  const doAr = document.getElementById('anoActAr')?.checked;
-  const doUm = document.getElementById('anoActUm')?.checked;
+  const doPj = document.getElementById(prefix + 'ActPj')?.checked;
+  const doAr = document.getElementById(prefix + 'ActAr')?.checked;
+  const doUm = document.getElementById(prefix + 'ActUm')?.checked;
   if (!doPj && !doAr && !doUm) {
     alert('Centang minimal satu sumber data (Penjualan / AR / Uang Masuk).');
     return;
@@ -7729,8 +7798,8 @@ function anoMoveToTrash() {
   trashItems.unshift(item);
   trashSave();
 
-  anoCloseDetail();
-  if (typeof anoScheduleRebuild === 'function') anoScheduleRebuild(true); else if (typeof anoRebuild === 'function') anoRebuild(true);
+  if (typeof onClose === 'function') onClose();
+  if (typeof onRefresh === 'function') onRefresh();
 
   const parts = [];
   if (item.penjualan.length) parts.push(item.penjualan.length + ' baris PJ');
