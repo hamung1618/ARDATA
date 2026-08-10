@@ -1954,6 +1954,41 @@ body.dark-mode .ano-card-v { color: #e2e8f0; }
 }
 #anoTbody td:nth-child(2),
 #tab-anomali thead th:nth-child(2) { width: 72px; max-width: 78px; padding-left: 4px; padding-right: 4px; }
+.fix-card[data-k="tempo"] .ano-card-v { color: #059669; }
+.fix-card[data-k="cash"] .ano-card-v { color: #0284c7; }
+.fix-card[data-k="lunas"] .ano-card-v { color: #16a34a; }
+.fix-card[data-k="lengkap"] .ano-card-v { color: #0f2942; }
+.fix-badge {
+  display: inline-block; padding: 2px 8px; border-radius: 10px;
+  font-size: 0.68rem; font-weight: 700; white-space: nowrap;
+}
+.fix-b-tempo { background: #d1fae5; color: #047857; }
+.fix-b-cash { background: #e0f2fe; color: #0369a1; }
+.fix-b-lunas { background: #dcfce7; color: #15803d; }
+.fix-b-lengkap { background: #ede9fe; color: #6d28d9; }
+.fix-b-lain { background: #f1f5f9; color: #475569; }
+body.dark-mode .fix-b-tempo { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+body.dark-mode .fix-b-cash { background: rgba(14,165,233,0.15); color: #7dd3fc; }
+body.dark-mode .fix-b-lunas { background: rgba(34,197,94,0.15); color: #86efac; }
+body.dark-mode .fix-b-lengkap { background: rgba(139,92,246,0.15); color: #c4b5fd; }
+#fixScroll {
+  max-height: 560px; overflow: auto; position: relative;
+}
+#fixTable { width: 100%; border-collapse: collapse; table-layout: fixed; }
+#fixTable thead th {
+  position: sticky; top: 0; z-index: 2;
+}
+#fixTbody td {
+  height: 36px; max-height: 36px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+  padding: 6px 8px; font-size: 0.78rem;
+  border-bottom: 1px solid #f0f0f0;
+  box-sizing: border-box;
+}
+#fixTbody tr.fix-pad td {
+  height: auto; padding: 0; border: none; background: transparent !important;
+}
+
 #tab-anomali thead th:nth-child(6),
 #tab-anomali thead th:nth-child(9) { white-space: nowrap; }
 
@@ -2058,6 +2093,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
             <button type="button" class="tab-btn active" data-tab="ar" onclick="switchTab(&#39;ar&#39;)">📒 DATA AR MINYAK &amp; RUPA RUPA</button>
             <button type="button" class="tab-btn" data-tab="uangmasuk" onclick="switchTab(&#39;uangmasuk&#39;)" aria-hidden="true">💰 DATA UANG MASUK</button>
             <button type="button" class="tab-btn" data-tab="anomali" onclick="switchTab(&#39;anomali&#39;)">⚠️ DATA ANOMALI</button>
+            <button type="button" class="tab-btn" data-tab="fix" onclick="switchTab(&#39;fix&#39;)">✅ DATA FIX</button>
         </div>
 
         <div class="tab-panel" id="tab-penjualan">
@@ -7122,6 +7158,71 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
           </div>
         </div><!-- /tab-anomali -->
 
+        <div class="tab-panel" id="tab-fix">
+          <div class="ano-wrap">
+            <div class="table-toolbar" style="margin-bottom:10px;">
+              <div class="toolbar-left" style="flex-wrap:wrap;gap:8px;">
+                <div class="status-pills" id="fixCatPills">
+                  <button type="button" class="tabbtn active" data-fix="semua" onclick="fixSetCat('semua')">Semua</button>
+                  <button type="button" class="tabbtn" data-fix="tempo" onclick="fixSetCat('tempo')">Tempo + AR ada</button>
+                  <button type="button" class="tabbtn" data-fix="cash" onclick="fixSetCat('cash')">Cash OK</button>
+                  <button type="button" class="tabbtn" data-fix="lunas" onclick="fixSetCat('lunas')">AR sudah lunas</button>
+                  <button type="button" class="tabbtn" data-fix="lengkap" onclick="fixSetCat('lengkap')">Lengkap (PJ+AR+UM)</button>
+                </div>
+              </div>
+              <div class="toolbar-actions">
+                <div class="quick-faktur">
+                  <span class="quick-faktur-icon">🔍</span>
+                  <input type="text" id="fixSearch" class="quick-faktur-input" placeholder="Cari faktur / toko / sales..." oninput="fixOnSearch()">
+                </div>
+                <div class="dropdown ano-menu-wrap">
+                  <button type="button" class="btn btn-secondary" onclick="fixToggleMenu()">⚙️ Aksi ▾</button>
+                  <div class="dropdown-menu" id="fixMenuDd" style="right:0;left:auto;min-width:200px;">
+                    <button type="button" class="um-menu-item" onclick="fixRebuild(true); fixCloseMenu();">🔄 Periksa ulang</button>
+                    <button type="button" class="um-menu-item" onclick="fixExportCSV(); fixCloseMenu();">📄 Export CSV</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div class="ano-summary" id="fixSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:8px;margin-bottom:12px;">
+              <div class="ano-card fix-card" data-k="tempo" onclick="fixSetCat('tempo')"><div class="ano-card-l">Tempo + AR ada</div><div class="ano-card-v" id="fixCtempo">0</div></div>
+              <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat('cash')"><div class="ano-card-l">Cash OK</div><div class="ano-card-v" id="fixCcash">0</div></div>
+              <div class="ano-card fix-card" data-k="lunas" onclick="fixSetCat('lunas')"><div class="ano-card-l">AR sudah lunas</div><div class="ano-card-v" id="fixClunas">0</div></div>
+              <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat('lengkap')"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">0</div></div>
+            </div>
+
+            <div class="result-info" id="fixResultInfo" style="margin-bottom:8px;">Belum diperiksa. Buka tab ini atau klik Periksa ulang.</div>
+
+            <div class="table-wrapper">
+              <div class="table-container" id="fixScroll" onscroll="fixOnScroll()">
+                <table id="fixTable">
+                  <thead>
+                    <tr>
+                      <th style="width:48px;">#</th>
+                      <th style="width:110px;">Status Fix</th>
+                      <th style="width:130px;">No. Faktur</th>
+                      <th style="width:90px;">Tanggal</th>
+                      <th style="width:90px;">Sales</th>
+                      <th style="width:140px;">Customer</th>
+                      <th style="width:100px;" class="text-right">Nominal PJ</th>
+                      <th style="width:100px;" class="text-right">Nominal AR</th>
+                      <th style="width:100px;" class="text-right">Bayar UM</th>
+                      <th style="width:100px;">Status AR</th>
+                      <th style="width:90px;">Status UM</th>
+                      <th style="width:90px;">Sumber</th>
+                      <th>Keterangan</th>
+                    </tr>
+                  </thead>
+                  <tbody id="fixTbody">
+                    <tr><td colspan="13" class="no-data"><div class="icon">✅</div><p>Belum ada data fix. Pastikan Data Penjualan / AR / Uang Masuk sudah terisi, lalu klik Periksa ulang.</p></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div><!-- /tab-fix -->
+
         <!-- Modal Detail Anomali Faktur -->
         <div class="transfer-modal-overlay" id="anoDetailModal" onclick="if(event.target===this)anoCloseDetail()">
           <div class="transfer-modal-box" style="max-width:820px;max-height:92vh;overflow:hidden;display:flex;flex-direction:column;">
@@ -8391,6 +8492,11 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
             }
             if (name === 'anomali' && typeof anoScheduleRebuild === 'function') {
                 try { anoScheduleRebuild(false); } catch(e) {}
+            }
+            if (name === 'fix') {
+                try {
+                    if (typeof fixRebuild === 'function') fixRebuild(false);
+                } catch(e) {}
             }
             if (name === 'uangmasuk') {
                 try {
@@ -10689,6 +10795,292 @@ function anoDataFingerprint() {
   return pjN + '|' + arN + '|' + umN + '|' + pjTip + '|' + umTip + '|x' + excl + '|v6umTfCover';
 }
 
+
+// =====================================================================
+// DATA FIX MODULE — faktur yang TIDAK masuk anomali (virtualized render)
+// =====================================================================
+let fixActiveCat = 'semua';
+let fixAllRows = [];      // full list
+let fixFilteredRows = []; // after cat + search
+let fixCounts = { tempo: 0, cash: 0, lunas: 0, lengkap: 0 };
+const FIX_ROW_H = 36;
+const FIX_OVERSCAN = 8;
+let fixScrollRaf = 0;
+let fixLastBuiltFp = '';
+
+function fixToggleMenu() {
+  const dd = document.getElementById('fixMenuDd');
+  if (!dd) return;
+  dd.classList.toggle('show');
+}
+function fixCloseMenu() {
+  const dd = document.getElementById('fixMenuDd');
+  if (dd) dd.classList.remove('show');
+}
+document.addEventListener('click', function(e) {
+  const wrap = e.target.closest && e.target.closest('#tab-fix .ano-menu-wrap');
+  if (!wrap) fixCloseMenu();
+});
+
+function fixSetCat(cat) {
+  fixActiveCat = cat || 'semua';
+  document.querySelectorAll('#fixCatPills .tabbtn').forEach(b => {
+    b.classList.toggle('active', b.dataset.fix === fixActiveCat);
+  });
+  fixApplyFilter();
+}
+
+function fixOnSearch() { fixApplyFilter(); }
+
+function fixBadge(cat) {
+  const map = {
+    tempo: ['Tempo + AR', 'fix-b-tempo'],
+    cash: ['Cash OK', 'fix-b-cash'],
+    lunas: ['AR Lunas', 'fix-b-lunas'],
+    lengkap: ['Lengkap', 'fix-b-lengkap'],
+    lain: ['Fix', 'fix-b-lain']
+  };
+  const m = map[cat] || map.lain;
+  return '<span class="fix-badge ' + m[1] + '">' + m[0] + '</span>';
+}
+
+function fixClassify(p, a, u) {
+  // returns primary category + ket
+  const hasP = !!p;
+  const hasA = !!a;
+  const hasU = !!(u && (u.count > 0 || (u.totalBayar || 0) > 0 || u.hasLunas || u.hasCashDropping || u.hasPiutangTempo));
+  const isLunas = hasA && a.kategori === 'lunas';
+  const isTempo = hasP && p.isTempo;
+  const isCash = hasP && p.isCash && !p.isTempo;
+
+  if (hasP && hasA && hasU) {
+    return { cat: 'lengkap', ket: (isTempo ? 'Tempo' : (isCash ? 'Cash' : 'PJ')) + ' + AR + UM selaras (bukan anomali)' };
+  }
+  if (isLunas) {
+    return { cat: 'lunas', ket: 'AR sudah LUNAS' + (hasP ? ' · ada di Penjualan' : '') + (hasU ? ' · ada di UM' : '') };
+  }
+  if (isTempo && hasA) {
+    return { cat: 'tempo', ket: 'Tempo di Penjualan + sudah ada di AR' + (hasU ? ' · ada jejak UM' : '') };
+  }
+  if (isCash) {
+    return { cat: 'cash', ket: 'Cash di Penjualan (normal, tidak wajib AR)' + (hasA ? ' · ada AR' : '') + (hasU ? ' · ada UM' : '') };
+  }
+  // fallback healthy residual
+  let bits = [];
+  if (hasP) bits.push('PJ');
+  if (hasA) bits.push('AR');
+  if (hasU) bits.push('UM');
+  return { cat: 'lain', ket: 'Selaras (' + (bits.join('+') || '—') + '), bukan anomali' };
+}
+
+/** Build fix list from current maps + anomaly findings. Safe to call after anoRebuild. */
+function fixRebuildFromAno() {
+  try {
+    const pj = (typeof anoGetPjMap === 'function') ? anoGetPjMap() : {};
+    const ar = (typeof anoGetArMap === 'function') ? anoGetArMap() : {};
+    const um = (typeof anoGetUmMap === 'function') ? anoGetUmMap() : {};
+    const bad = new Set();
+    (anoFindings || []).forEach(function(f) {
+      bad.add(anoNormFaktur(f.noFaktur));
+    });
+
+    const allKeys = new Set([...Object.keys(pj), ...Object.keys(ar), ...Object.keys(um)]);
+    const rows = [];
+    const counts = { tempo: 0, cash: 0, lunas: 0, lengkap: 0 };
+
+    allKeys.forEach(function(f) {
+      if (bad.has(f)) return;
+      // skip excluded months if helper exists
+      const p = pj[f], a = ar[f], u = um[f];
+      const tgl = (p && p.tglFaktur) || (a && a.tglFaktur) || '';
+      if (typeof anoIsExcludedRowDate === 'function' && tgl && anoIsExcludedRowDate(tgl)) return;
+      // must have some real presence
+      if (!p && !a && !u) return;
+      // empty zero noise
+      if (p && !a && !u && Math.abs(p.nominal || 0) < 0.5) return;
+
+      const cl = fixClassify(p, a, u);
+      if (counts[cl.cat] !== undefined) counts[cl.cat]++;
+
+      let tglShow = '';
+      if (p && p.tglFaktur) tglShow = p.tglFaktur;
+      else if (a && a.tglFaktur) {
+        const raw = a.tglFaktur;
+        tglShow = (typeof fmtDate === 'function' && typeof raw === 'number') ? fmtDate(raw) : String(raw || '');
+      }
+
+      rows.push({
+        cat: cl.cat,
+        noFaktur: (p && p.noFaktur) || (a && a.noFaktur) || (u && u.noFaktur) || f,
+        tglFaktur: tglShow,
+        sales: (p && p.sales) || (a && a.sales) || (u && u.sales) || '',
+        toko: (p && p.toko) || (a && a.toko) || (u && u.toko) || '',
+        nomPj: p ? p.nominal : null,
+        nomAr: a ? a.nominal : null,
+        bayarUm: u ? u.totalBayar : null,
+        statusAr: a ? a.statusLabel : '—',
+        statusUm: u ? (u.status || '—') : '—',
+        sumberAr: a ? a.sumber : '—',
+        ket: cl.ket
+      });
+    });
+
+    rows.sort(function(x, y) {
+      return String(x.tglFaktur).localeCompare(String(y.tglFaktur)) || String(x.noFaktur).localeCompare(String(y.noFaktur));
+    });
+
+    fixAllRows = rows;
+    fixCounts = counts;
+    fixLastBuiltFp = (typeof anoDataFingerprint === 'function') ? anoDataFingerprint() : String(rows.length);
+    ['tempo','cash','lunas','lengkap'].forEach(function(k) {
+      const el = document.getElementById('fixC' + k);
+      if (el) el.textContent = (counts[k] || 0).toLocaleString('id-ID');
+    });
+    fixApplyFilter();
+  } catch (e) {
+    console.error('fixRebuildFromAno', e);
+  }
+}
+
+function fixRebuild(force) {
+  // Prefer full anomaly rebuild so maps + findings stay consistent
+  if (typeof anoScheduleRebuild === 'function') {
+    anoScheduleRebuild(!!force);
+    // fixRebuildFromAno dipanggil di akhir anoRebuild
+    // Jika fingerprint sama & force false, anoScheduleRebuild hanya anoRender —
+    // pastikan fix tetap diisi
+    setTimeout(function() {
+      if (!fixAllRows.length || force) fixRebuildFromAno();
+    }, 80);
+  } else {
+    fixRebuildFromAno();
+  }
+}
+
+function fixApplyFilter() {
+  const qEl = document.getElementById('fixSearch');
+  const q = qEl ? qEl.value.trim().toLowerCase() : '';
+  let rows = fixAllRows;
+  if (fixActiveCat && fixActiveCat !== 'semua') {
+    rows = rows.filter(function(r) { return r.cat === fixActiveCat; });
+  }
+  if (q) {
+    rows = rows.filter(function(r) {
+      return String(r.noFaktur).toLowerCase().indexOf(q) >= 0 ||
+        String(r.sales).toLowerCase().indexOf(q) >= 0 ||
+        String(r.toko).toLowerCase().indexOf(q) >= 0 ||
+        String(r.ket).toLowerCase().indexOf(q) >= 0 ||
+        String(r.sumberAr).toLowerCase().indexOf(q) >= 0;
+    });
+  }
+  fixFilteredRows = rows;
+  const info = document.getElementById('fixResultInfo');
+  if (info) {
+    info.textContent = 'Menampilkan ' + rows.length.toLocaleString('id-ID') +
+      ' dari ' + fixAllRows.length.toLocaleString('id-ID') + ' faktur fix' +
+      ' · virtualisasi aktif (hanya baris terlihat di-render)' +
+      ' · Anomali terpisah: ' + ((typeof anoFindings !== 'undefined' && anoFindings) ? anoFindings.length : 0);
+  }
+  const scroller = document.getElementById('fixScroll');
+  if (scroller) scroller.scrollTop = 0;
+  fixRenderVisible();
+}
+
+function fixOnScroll() {
+  if (fixScrollRaf) return;
+  fixScrollRaf = requestAnimationFrame(function() {
+    fixScrollRaf = 0;
+    fixRenderVisible();
+  });
+}
+
+function fixRenderVisible() {
+  const tbody = document.getElementById('fixTbody');
+  const scroller = document.getElementById('fixScroll');
+  if (!tbody || !scroller) return;
+  const rows = fixFilteredRows;
+  const n = rows.length;
+  if (!n) {
+    tbody.innerHTML = '<tr><td colspan="13" class="no-data"><div class="icon">✅</div><p>' +
+      (fixAllRows.length === 0
+        ? 'Belum ada data fix. Isi Penjualan / AR / UM lalu klik Periksa ulang (atau buka tab Anomali dulu).'
+        : 'Tidak ada hasil untuk filter / pencarian ini.') +
+      '</p></td></tr>';
+    return;
+  }
+
+  const scrollTop = scroller.scrollTop;
+  const viewH = scroller.clientHeight || 560;
+  let start = Math.floor(scrollTop / FIX_ROW_H) - FIX_OVERSCAN;
+  if (start < 0) start = 0;
+  let end = Math.ceil((scrollTop + viewH) / FIX_ROW_H) + FIX_OVERSCAN;
+  if (end > n) end = n;
+
+  const topPad = start * FIX_ROW_H;
+  const botPad = (n - end) * FIX_ROW_H;
+  const esc = (typeof umEsc === 'function') ? umEsc : function(s) {
+    return String(s == null ? '' : s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  };
+  const rp = (typeof anoFmtRp === 'function') ? anoFmtRp : function(x) {
+    if (x == null) return '—';
+    return 'Rp ' + Math.round(x).toLocaleString('id-ID');
+  };
+
+  let html = '';
+  if (topPad > 0) {
+    html += '<tr class="fix-pad"><td colspan="13" style="height:' + topPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
+  }
+  for (let i = start; i < end; i++) {
+    const r = rows[i];
+    const fk = esc(String(r.noFaktur)).replace(/'/g, "\\'");
+    html += '<tr style="cursor:pointer;height:' + FIX_ROW_H + 'px;" onclick="anoOpenDetail(\'' + fk + '\')">' +
+      '<td>' + (i + 1) + '</td>' +
+      '<td>' + fixBadge(r.cat) + '</td>' +
+      '<td class="num"><a href="javascript:void(0)" class="faktur-link" onclick="event.stopPropagation();anoOpenDetail(\'' + fk + '\')">' + esc(r.noFaktur) + '</a></td>' +
+      '<td>' + esc(r.tglFaktur || '—') + '</td>' +
+      '<td>' + esc(r.sales) + '</td>' +
+      '<td>' + esc(r.toko) + '</td>' +
+      '<td class="text-right num">' + rp(r.nomPj) + '</td>' +
+      '<td class="text-right num">' + rp(r.nomAr) + '</td>' +
+      '<td class="text-right num">' + rp(r.bayarUm) + '</td>' +
+      '<td>' + esc(r.statusAr) + '</td>' +
+      '<td>' + esc(r.statusUm) + '</td>' +
+      '<td>' + esc(r.sumberAr) + '</td>' +
+      '<td style="white-space:normal;max-width:240px;font-size:0.72rem;">' + esc(r.ket) + '</td>' +
+    '</tr>';
+  }
+  if (botPad > 0) {
+    html += '<tr class="fix-pad"><td colspan="13" style="height:' + botPad + 'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function fixExportCSV() {
+  if (!fixFilteredRows.length) {
+    alert('Tidak ada baris untuk diekspor.');
+    return;
+  }
+  const cols = ['Status Fix','No.Faktur','Tanggal','Sales','Customer','Nominal PJ','Nominal AR','Bayar UM','Status AR','Status UM','Sumber','Keterangan'];
+  const lines = [cols.join(',')];
+  fixFilteredRows.forEach(function(r) {
+    const cells = [
+      r.cat, r.noFaktur, r.tglFaktur, r.sales, r.toko,
+      r.nomPj, r.nomAr, r.bayarUm, r.statusAr, r.statusUm, r.sumberAr, r.ket
+    ].map(function(v) {
+      const s = (v == null ? '' : String(v)).replace(/"/g, '""');
+      return '"' + s + '"';
+    });
+    lines.push(cells.join(','));
+  });
+  const blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'data-fix.csv';
+  a.click();
+  setTimeout(function() { URL.revokeObjectURL(a.href); }, 1500);
+}
+
+
 function anoShowBusy(on) {
   const info = document.getElementById('anoResultInfo');
   if (!info) return;
@@ -10965,6 +11357,7 @@ function anoRebuild(force) {
   }
   anoLastFingerprint = anoDataFingerprint();
   anoRender();
+  try { if (typeof fixRebuildFromAno === 'function') fixRebuildFromAno(); } catch (_) {}
   const t1 = (typeof performance !== 'undefined' && performance.now) ? performance.now() : Date.now();
   const info = document.getElementById('anoResultInfo');
   if (info && info.textContent && info.textContent.indexOf('Menampilkan') >= 0) {
