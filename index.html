@@ -7017,11 +7017,14 @@ function anoScheduleRebuild(force) {
 function anoUmSettled(u) {
   // Anggap "lunas" jika status eksplisit LUNAS, ATAU secara nominal bayar sudah
   // menutup/mekewati tagihan — meskipun kolom STATUS di data mentah kosong ("—").
+  // Toleransi disamakan dengan bagian lain dari modul anomali (Rp 1.000) supaya
+  // selisih pembulatan kecil tidak dianggap "belum lunas".
   if (!u) return false;
   if (u.status === 'LUNAS' || u.hasLunas) return true;
   const bayar = Number(u.totalBayar) || 0;
   const tagihan = Number(u.tagihan) || 0;
-  if (tagihan > 0 && bayar >= tagihan - 1) return true;
+  const ANO_UM_SETTLE_TOLERANCE = 1000;
+  if (tagihan > 0 && bayar >= tagihan - ANO_UM_SETTLE_TOLERANCE) return true;
   return false;
 }
 
