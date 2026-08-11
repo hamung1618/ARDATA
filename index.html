@@ -3060,6 +3060,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                 <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActPj" checked=""> Penjualan</label>
                 <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActAr" checked=""> AR</label>
                 <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActUm" checked=""> Uang Masuk</label>
+                <button type="button" class="btn btn-success" id="fixBtnSyncLunas" style="display:none;margin-left:8px;" onclick="anoSyncArLunasFromUm()" title="Update status AR menjadi Lunas sesuai data Uang Masuk">✓ Masukkan Lunas ke Data AR</button>
                 <button type="button" class="btn btn-danger" style="margin-left:auto;" onclick="fixMoveToTrash()">🗑️ Pindah ke Sampah</button>
                 <button type="button" class="btn btn-secondary" onclick="fixCloseDetail()">Tutup</button>
               </div>
@@ -3107,6 +3108,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               <label style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; opacity: 1;"><input type="checkbox" id="anoActPj" checked=""> Penjualan</label>
               <label style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; opacity: 1;"><input type="checkbox" id="anoActAr" checked=""> AR</label>
               <label style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; opacity: 0.4;"><input type="checkbox" id="anoActUm" checked="" disabled=""> Uang Masuk</label>
+              <button type="button" class="btn btn-success" id="anoBtnSyncLunas" style="display:none;margin-left:8px;" onclick="anoSyncArLunasFromUm()" title="Update status AR menjadi Lunas sesuai data Uang Masuk">✓ Masukkan Lunas ke Data AR</button>
               <button type="button" class="btn btn-danger" style="margin-left:auto;" onclick="anoMoveToTrash()">🗑️ Pindah ke Sampah</button>
               <button type="button" class="btn btn-secondary" onclick="anoCloseDetail()">Tutup</button>
             </div>
@@ -8194,6 +8196,141 @@ function anoFillActionChecks(prefix, hasPj, hasAr, hasUm) {
   if (elUm) { elUm.checked = hasUm; elUm.disabled = !hasUm; elUm.parentElement.style.opacity = hasUm ? '1' : '0.4'; }
 }
 
+function anoParseUmDateToSerial(dateStr) {
+  if (!dateStr) return null;
+  const s = String(dateStr).trim();
+  // YYYY-MM-DD
+  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m && typeof dateToExcelSerial === 'function') {
+    return dateToExcelSerial(m[1] + '-' + m[2] + '-' + m[3]);
+  }
+  // DD/MM/YYYY or D/M/YYYY
+  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
+  if (m) {
+    const d = parseInt(m[1], 10);
+    const mo = parseInt(m[2], 10);
+    const y = parseInt(m[3], 10);
+    if (typeof dateToExcelSerial === 'function') {
+      return dateToExcelSerial(y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0'));
+    }
+    const utcMs = Date.UTC(y, mo - 1, d);
+    return Math.floor(utcMs / 86400000) + 25569;
+  }
+  return null;
+}
+
+/** Cek apakah faktur layak disinkronkan: UM Lunas, AR masih belum/titip */
+function anoCanSyncArLunas(noFaktur) {
+  const fKey = anoNormFaktur(noFaktur);
+  if (!fKey) return null;
+  const umMap = typeof anoGetUmMap === 'function' ? anoGetUmMap() : {};
+  const arMap = typeof anoGetArMap === 'function' ? anoGetArMap() : {};
+  const u = umMap[fKey];
+  const a = arMap[fKey];
+  if (!u || !a) return null;
+  if (u.status !== 'LUNAS' && !u.hasLunas) return null;
+  if (a.kategori === 'lunas') return null;
+  const umPay = Number(u.totalBayar) || 0;
+  const nom = Number(a.nominal) || 0;
+  // UM harus menutup nominal (toleransi Rp 1000) atau minimal ada pembayaran
+  if (umPay <= 0) return null;
+  return {
+    fKey: fKey,
+    noFaktur: a.noFaktur || noFaktur,
+    umPay: umPay,
+    nominal: nom,
+    tglBayar: u.tglBayarLast || u.tglBayar || '',
+    sumber: a.sumber || '',
+    statusAr: a.statusLabel || a.kategori
+  };
+}
+
+function anoUpdateSyncLunasBtn(prefix, noFaktur) {
+  const btn = document.getElementById(prefix + 'BtnSyncLunas');
+  if (!btn) return;
+  const info = anoCanSyncArLunas(noFaktur);
+  if (info) {
+    btn.style.display = 'inline-flex';
+    btn.title = 'UM Lunas (Rp ' + Math.round(info.umPay).toLocaleString('id-ID') + ') → update AR jadi Lunas';
+  } else {
+    btn.style.display = 'none';
+  }
+}
+
+/**
+ * Sinkronkan status Lunas dari Uang Masuk ke baris AR faktur yang sama.
+ * - totalPayment = max(bayar UM, nominal) agar tertutup
+ * - sisaRiil = 0, kategori = lunas
+ * - tglPelunasan diisi dari tanggal bayar UM terakhir (jika ada)
+ */
+function anoSyncArLunasFromUm() {
+  const noFaktur = _anoDetailFaktur;
+  if (!noFaktur) { alert('Faktur tidak dikenali.'); return; }
+  const info = anoCanSyncArLunas(noFaktur);
+  if (!info) {
+    alert('Tidak bisa sinkronkan.\nSyarat: Uang Masuk sudah Lunas, AR masih Belum Lunas/Titip, dan ada nominal bayar UM.');
+    return;
+  }
+
+  const fKey = info.fKey;
+  const umPay = info.umPay;
+  const tglSerial = anoParseUmDateToSerial(info.tglBayar);
+  let updated = 0;
+  const details = [];
+
+  if (typeof state === 'undefined') {
+    alert('Data AR belum dimuat.');
+    return;
+  }
+
+  ['A', 'B'].forEach(function(k) {
+    if (!state[k] || !state[k].rows) return;
+    state[k].rows.forEach(function(r) {
+      if (anoNormFaktur(r.noFaktur) !== fKey) return;
+      if (r.kategori === 'lunas') return;
+      const nom = Number(r.nominal) || Number(r.saldoAwal) || 0;
+      // Bayar penuh: minimal nominal, atau sesuai total UM jika lebih besar
+      const newPay = Math.max(umPay, nom);
+      r.totalPayment = newPay;
+      r.sisaRiil = 0;
+      r.kategori = 'lunas';
+      if (tglSerial != null) r.tglPelunasan = tglSerial;
+      updated++;
+      details.push((state[k].label || k) + ': ' + String(r.noFaktur) + ' → LUNAS (bayar ' + Math.round(newPay).toLocaleString('id-ID') + ')');
+    });
+  });
+
+  if (!updated) {
+    alert('Tidak ada baris AR yang diubah (mungkin sudah Lunas atau faktur tidak cocok).');
+    return;
+  }
+
+  if (typeof updateUploadStatus === 'function') updateUploadStatus();
+  if (typeof rebuildSumberFilter === 'function') rebuildSumberFilter();
+  if (typeof rebuildSalesFilter === 'function') rebuildSalesFilter();
+  if (typeof saveStateToStorage === 'function') saveStateToStorage();
+  if (typeof render === 'function') render();
+
+  // Rebuild anomali & refresh modal
+  if (typeof anoScheduleRebuild === 'function') anoScheduleRebuild(true);
+  else if (typeof anoRebuild === 'function') anoRebuild(true);
+  if (typeof fixRebuild === 'function') fixRebuild(true);
+
+  alert('Berhasil sinkronkan ' + updated + ' baris AR:\n' + details.join('\n') +
+    '\n\nStatus AR sekarang: SUDAH LUNAS (sesuai Uang Masuk).');
+
+  // Refresh isi modal jika masih terbuka
+  const anoModal = document.getElementById('anoDetailModal');
+  if (anoModal && anoModal.classList.contains('show')) {
+    anoOpenDetail(noFaktur);
+  }
+  const fixPanel = document.getElementById('fixDetailPanel');
+  if (fixPanel && fixPanel.style.display !== 'none') {
+    fixOpenDetail(noFaktur);
+  }
+}
+
+
 // Dipakai oleh tab "DATA ANOMALI" — tampil sebagai modal popup (perilaku lama)
 function anoOpenDetail(noFaktur, jenisHint) {
   _anoDetailFaktur = noFaktur;
@@ -8202,6 +8339,7 @@ function anoOpenDetail(noFaktur, jenisHint) {
   if (title) title.textContent = d.titleText;
   document.getElementById('anoDetailBody').innerHTML = d.html;
   anoFillActionChecks('ano', d.hasPj, d.hasAr, d.hasUm);
+  anoUpdateSyncLunasBtn('ano', noFaktur);
   document.getElementById('anoDetailModal').classList.add('show');
 }
 
@@ -8213,6 +8351,7 @@ function fixOpenDetail(noFaktur, jenisHint) {
   if (title) title.textContent = d.titleText;
   document.getElementById('fixDetailBody').innerHTML = d.html;
   anoFillActionChecks('fix', d.hasPj, d.hasAr, d.hasUm);
+  anoUpdateSyncLunasBtn('fix', noFaktur);
   const panel = document.getElementById('fixDetailPanel');
   if (panel) {
     panel.style.display = 'block';
