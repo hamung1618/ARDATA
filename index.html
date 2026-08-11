@@ -1579,12 +1579,12 @@ body.dark-mode .slot-choice label:has(input:checked) {
   .tgh-headinfo { border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
   .tgh-headinfo td { padding: 1px 4px; }
   .tgh-headinfo .tgh-lbl { font-weight: 700; white-space: nowrap; }
-  .tgh-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px; }
-  .tgh-table th, .tgh-table td { border: 1px solid #333; padding: 3px 4px; }
+  .tgh-table { width: 100%; border-collapse: collapse; font-size: 8.5px; table-layout: fixed; margin-bottom: 10px; }
+  .tgh-table th, .tgh-table td { border: 1px solid #333; padding: 2px 3px; overflow-wrap: break-word; }
   .tgh-table thead th { background: #dbe4ee; text-align: center; font-weight: 700; }
   .tgh-table .tgh-c { text-align: center; }
   .tgh-table .tgh-r { text-align: right; }
-  .tgh-table .tgh-pay { width: 60px; }
+  .tgh-table .tgh-pay { width: 42px; }
   .tgh-total-row td { background: #f1f5f9; }
   .tgh-footinfo { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 22px; }
   .tgh-footinfo td { padding: 2px 4px; vertical-align: top; }
@@ -5108,6 +5108,13 @@ function printTagihanTerpilih(){
   const area = document.getElementById('tagihanPrintArea');
   area.innerHTML = html;
   document.body.classList.add('printing-tagihan');
+  let pageStyle = document.getElementById('tghPageStyle');
+  if (!pageStyle) {
+    pageStyle = document.createElement('style');
+    pageStyle.id = 'tghPageStyle';
+    document.head.appendChild(pageStyle);
+  }
+  pageStyle.textContent = '@page { size: A4 portrait; margin: 10mm 8mm; }';
   setTimeout(() => {
     window.print();
   }, 50);
@@ -5115,6 +5122,8 @@ function printTagihanTerpilih(){
 
 window.addEventListener('afterprint', () => {
   document.body.classList.remove('printing-tagihan');
+  const pageStyle = document.getElementById('tghPageStyle');
+  if (pageStyle) pageStyle.remove();
 });
 
 function arOnScroll() {
