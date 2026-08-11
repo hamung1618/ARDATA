@@ -5196,78 +5196,76 @@ function closeTagihanChoiceModal(){
   if (modal) modal.classList.remove('show');
 }
 
-function buildTagihanExcelHtmlForSales(salesName, rows){
-  const today = todayStr2();
+function appendTagihanBlockAoa(aoa, merges, salesName, rows, today){
+  const startRow = aoa.length;
+
+  aoa.push(['SALESMAN/DROPING','','',': ' + salesName,'','','','','','','']);
+  merges.push({ s:{r:startRow,   c:0}, e:{r:startRow,   c:2} });
+
+  aoa.push(['TANGGAL','','',': ' + today,'','','','','','','']);
+  merges.push({ s:{r:startRow+1, c:0}, e:{r:startRow+1, c:2} });
+
+  const headRow1 = startRow + 2;
+  const headRow2 = startRow + 3;
+  aoa.push(['NO','NO FAKTUR','NAMA OUTLET','ALAMAT','SALESMAN','TGL NOTA','TGL TEMPO','TAGIHAN','PEMBAYARAN','','KET']);
+  aoa.push(['','','','','','','','','CASH','TRANSFER','']);
+  [0,1,2,3,4,5,6,7,10].forEach(c => merges.push({ s:{r:headRow1,c:c}, e:{r:headRow2,c:c} }));
+  merges.push({ s:{r:headRow1,c:8}, e:{r:headRow1,c:9} });
+
   let totalTagihan = 0;
-  let bodyRows = '';
   rows.forEach((r, i) => {
     const tagihan = r.sisaRiil != null ? r.sisaRiil : r.nominal;
     totalTagihan += tagihan;
     const ket = String(r.sumber || '').toUpperCase().replace('RUPA-RUPA', 'RUPA2');
-    bodyRows += '<tr>' +
-      '<td align="center">' + (i + 1) + '</td>' +
-      '<td align="center">' + escapeHtml(r.noFaktur) + '</td>' +
-      '<td>' + escapeHtml(r.toko) + '</td>' +
-      '<td>' + escapeHtml(r.alamat || '') + '</td>' +
-      '<td align="center">' + escapeHtml(r.sales) + '</td>' +
-      '<td align="center">' + fmtDate(r.tglFaktur) + '</td>' +
-      '<td align="center">' + fmtDate(r.tglJatuhTempo) + '</td>' +
-      '<td align="right">' + fmtRpPlain(tagihan) + '</td>' +
-      '<td></td>' +
-      '<td></td>' +
-      '<td align="center">' + escapeHtml(ket) + '</td>' +
-    '</tr>';
+    aoa.push([
+      i + 1,
+      String(r.noFaktur || ''),
+      r.toko || '',
+      r.alamat || '',
+      r.sales || '',
+      fmtDate(r.tglFaktur),
+      fmtDate(r.tglJatuhTempo),
+      tagihan,
+      '', '',
+      ket
+    ]);
   });
-  return `
-  <table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;">
-    <col style="width:38pt">
-    <col style="width:96pt">
-    <col style="width:123pt">
-    <col style="width:140pt">
-    <col style="width:63pt">
-    <col style="width:66pt">
-    <col style="width:71pt">
-    <col style="width:66pt">
-    <col style="width:78pt">
-    <col style="width:61pt">
-    <col style="width:65pt">
-    <tr><td colspan="2"><b>SALESMAN/DROPING</b></td><td colspan="9">: ${escapeHtml(salesName)}</td></tr>
-    <tr><td colspan="2"><b>TANGGAL</b></td><td colspan="9">: ${today}</td></tr>
-    <tr><td></td></tr>
-    <tr style="background:#DBE4EE;font-weight:bold;text-align:center;">
-      <td>NO</td><td>NO FAKTUR</td><td>NAMA OUTLET</td><td>ALAMAT</td><td>SALESMAN</td>
-      <td>TGL NOTA</td><td>TGL TEMPO</td><td>TAGIHAN</td><td colspan="2">PEMBAYARAN</td><td>KET</td>
-    </tr>
-    <tr style="background:#DBE4EE;font-weight:bold;text-align:center;">
-      <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>CASH</td><td>TRANSFER</td><td></td>
-    </tr>
-    ${bodyRows}
-    <tr style="background:#F1F5F9;font-weight:bold;">
-      <td colspan="7" align="center">TOTAL</td>
-      <td align="right">${fmtRpPlain(totalTagihan)}</td>
-      <td></td><td></td><td></td>
-    </tr>
-    <tr><td colspan="11"></td></tr>
-    <tr><td colspan="11"></td></tr>
-    <tr><td colspan="11"></td></tr>
-    <tr><td colspan="8"></td><td colspan="3">TOTAL SETORAN&nbsp;&nbsp;: Rp ....................................</td></tr>
-    <tr><td colspan="8"></td><td colspan="3">OPERASIONAL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</td></tr>
-    <tr><td colspan="8"></td><td colspan="3">LAIN LAIN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</td></tr>
-    <tr><td colspan="11"></td></tr>
-    <tr><td colspan="8"></td><td colspan="3"><b>DISETORKAN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</b></td></tr>
-    <tr><td colspan="11"></td></tr>
-    <tr><td colspan="11"></td></tr>
-    <tr>
-      <td colspan="3" align="center">SALESMAN/DROPING</td><td colspan="5"></td>
-      <td colspan="3" align="center">Adm KASIR</td>
-    </tr>
-  </table>`;
+
+  const totalRow = aoa.length;
+  aoa.push(['TOTAL','','','','','','', totalTagihan,'','','']);
+  merges.push({ s:{r:totalRow,c:0}, e:{r:totalRow,c:6} });
+
+  aoa.push(['','','','','','','','','','','']);
+  aoa.push(['','','','','','','','','','','']);
+  aoa.push(['','','','','','','','','','','']);
+
+  aoa.push(['','','','','','','','','TOTAL SETORAN',': Rp ....................................','']);
+  aoa.push(['','','','','','','','','OPERASIONAL',': Rp ....................................','']);
+  aoa.push(['','','','','','','','','LAIN LAIN',': Rp ....................................','']);
+  aoa.push(['','','','','','','','','','','']);
+  aoa.push(['','','','','','','','','DISETORKAN',': Rp ....................................','']);
+
+  aoa.push(['','','','','','','','','','','']);
+  aoa.push(['','','','','','','','','','','']);
+
+  const signRow = aoa.length;
+  aoa.push(['','','SALESMAN/DROPING','','','','','','','Adm KASIR','']);
+
+  // spacer before next block
+  aoa.push(['','','','','','','','','','','']);
+  aoa.push(['','','','','','','','','','','']);
+
+  return { totalRow, signRow };
 }
 
 function exportTagihanExcel(){
   const rows = getArSelectedRows();
   if (rows.length === 0){
     alert('Belum ada faktur yang dicentang. Centang dulu faktur yang mau ditagih di kolom paling kiri tabel.');
+    return;
+  }
+  if (typeof XLSX === 'undefined'){
+    alert('Library Excel belum siap dimuat, coba lagi sebentar lagi.');
     return;
   }
   const bySales = {};
@@ -5277,15 +5275,53 @@ function exportTagihanExcel(){
     if (!bySales[name]) { bySales[name] = []; order.push(name); }
     bySales[name].push(r);
   });
-  let tables = '';
-  order.forEach(name => { tables += buildTagihanExcelHtmlForSales(name, bySales[name]) + '<br>'; });
-  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body>' + tables + '</body></html>';
-  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
-  const link = document.createElement('a');
-  link.href = URL.createObjectURL(blob);
+
+  const today = todayStr2();
+  const aoa = [];
+  const merges = [];
+  const totalCells = []; // {row, value} to number-format
+  const noFakturRows = []; // row indices with text-only faktur col
+
+  order.forEach(name => {
+    const beforeLen = aoa.length;
+    const info = appendTagihanBlockAoa(aoa, merges, name, bySales[name], today);
+    totalCells.push(info.totalRow);
+    // remember data row range for number/text formatting
+    for (let r = beforeLen + 4; r < info.totalRow; r++) noFakturRows.push(r);
+  });
+
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!merges'] = merges;
+  ws['!cols'] = [
+    { wch: 13 },   // NO
+    { wch: 19.14 },// NO FAKTUR
+    { wch: 24.57 },// NAMA OUTLET
+    { wch: 28 },   // ALAMAT
+    { wch: 12.57 },// SALESMAN
+    { wch: 13.29 },// TGL NOTA
+    { wch: 14.14 },// TGL TEMPO
+    { wch: 13.14 },// TAGIHAN
+    { wch: 15.57 },// CASH
+    { wch: 12.29 },// TRANSFER
+    { wch: 13 },   // KET
+  ];
+
+  // Force NO FAKTUR column to text (prevents scientific notation) and TAGIHAN column to number format
+  noFakturRows.forEach(r => {
+    const fakturAddr = XLSX.utils.encode_cell({ r, c: 1 });
+    if (ws[fakturAddr]) { ws[fakturAddr].t = 's'; ws[fakturAddr].z = '@'; }
+    const tagihanAddr = XLSX.utils.encode_cell({ r, c: 7 });
+    if (ws[tagihanAddr] && typeof ws[tagihanAddr].v === 'number') ws[tagihanAddr].z = '#,##0';
+  });
+  totalCells.forEach(r => {
+    const addr = XLSX.utils.encode_cell({ r, c: 7 });
+    if (ws[addr] && typeof ws[addr].v === 'number') ws[addr].z = '#,##0';
+  });
+
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Tagihan');
   const stamp = new Date().toISOString().slice(0,10);
-  link.download = 'Tagihan_Terpilih_' + stamp + '.xls';
-  link.click();
+  XLSX.writeFile(wb, 'Tagihan_Terpilih_' + stamp + '.xlsx');
 }
 
 function printTagihanTerpilih(){
