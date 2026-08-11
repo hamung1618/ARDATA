@@ -2152,7 +2152,19 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 </script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx.full.min(1).js.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx.full(1).min.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx(1).full.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx(1).download"></script>
 </head>
 <body class="">
+<div class="modal-overlay" id="tagihan-choice-modal">
+    <div class="modal-box" style="max-width:380px;">
+        <h3>🧾 Cetak Tagihan Terpilih</h3>
+        <p style="font-size:0.85rem;color:#555;margin-bottom:16px;">Pilih cara mengeluarkan tagihan:</p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button type="button" class="btn btn-success" style="width:100%;" onclick="closeTagihanChoiceModal(); exportTagihanExcel();">📥 Download Excel (bisa diedit)</button>
+            <button type="button" class="btn btn-secondary" style="width:100%;" onclick="closeTagihanChoiceModal(); printTagihanTerpilih();">🖨️ Langsung Print</button>
+            <button type="button" class="btn" style="width:100%;background:#fff;" onclick="closeTagihanChoiceModal();">Batal</button>
+        </div>
+    </div>
+</div>
 <div id="tagihanPrintArea" style="display:none;">
+
   <div class="tgh-block">
     <table class="tgh-headinfo">
       <tbody><tr><td class="tgh-lbl">SALESMAN/DROPING</td><td>: RAJU</td></tr>
@@ -2425,17 +2437,6 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
             </div>
 
                 <!-- Modal Download Excel -->
-                <div class="modal-overlay" id="tagihan-choice-modal">
-                    <div class="modal-box" style="max-width:380px;">
-                        <h3>🧾 Cetak Tagihan Terpilih</h3>
-                        <p style="font-size:0.85rem;color:#555;margin-bottom:16px;">Pilih cara mengeluarkan tagihan:</p>
-                        <div style="display:flex;flex-direction:column;gap:10px;">
-                            <button type="button" class="btn btn-success" style="width:100%;" onclick="closeTagihanChoiceModal(); exportTagihanExcel();">📥 Download Excel (bisa diedit)</button>
-                            <button type="button" class="btn btn-secondary" style="width:100%;" onclick="closeTagihanChoiceModal(); printTagihanTerpilih();">🖨️ Langsung Print</button>
-                            <button type="button" class="btn" style="width:100%;background:#fff;" onclick="closeTagihanChoiceModal();">Batal</button>
-                        </div>
-                    </div>
-                </div>
                 <div class="modal-overlay" id="excel-modal">
                     <div class="modal-box">
                         <h3>📥 Download Excel</h3>
