@@ -2425,6 +2425,17 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
             </div>
 
                 <!-- Modal Download Excel -->
+                <div class="modal-overlay" id="tagihan-choice-modal">
+                    <div class="modal-box" style="max-width:380px;">
+                        <h3>🧾 Cetak Tagihan Terpilih</h3>
+                        <p style="font-size:0.85rem;color:#555;margin-bottom:16px;">Pilih cara mengeluarkan tagihan:</p>
+                        <div style="display:flex;flex-direction:column;gap:10px;">
+                            <button type="button" class="btn btn-success" style="width:100%;" onclick="closeTagihanChoiceModal(); exportTagihanExcel();">📥 Download Excel (bisa diedit)</button>
+                            <button type="button" class="btn btn-secondary" style="width:100%;" onclick="closeTagihanChoiceModal(); printTagihanTerpilih();">🖨️ Langsung Print</button>
+                            <button type="button" class="btn" style="width:100%;background:#fff;" onclick="closeTagihanChoiceModal();">Batal</button>
+                        </div>
+                    </div>
+                </div>
                 <div class="modal-overlay" id="excel-modal">
                     <div class="modal-box">
                         <h3>📥 Download Excel</h3>
@@ -2612,7 +2623,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
   <div class="count-note" id="countNote">Belum ada data. Upload file atau input manual lewat menu untuk mulai.</div>
   <div id="arSelBar" style="display: flex; align-items: center; gap: 10px; margin: 6px 0px 2px; padding: 8px 12px; background: rgb(255, 247, 237); border: 1px solid rgb(253, 186, 116); border-radius: 8px; font-size: 0.85rem; color: rgb(124, 45, 18);">
     <span id="arSelCount">1 faktur dipilih</span>
-    <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;" onclick="printTagihanTerpilih()">🧾 Cetak Tagihan Terpilih</button>
+    <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;" onclick="openTagihanChoiceModal()">🧾 Cetak Tagihan Terpilih</button>
     <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;background:#fff;" onclick="clearArSelection()">Batal pilih</button>
   </div>
 
@@ -5170,6 +5181,112 @@ function todayStr2(){
 }
 function fmtRpPlain(n){ n = Number(n)||0; return Math.round(n).toLocaleString('id-ID'); }
 
+function openTagihanChoiceModal(){
+  const rows = getArSelectedRows();
+  if (rows.length === 0){
+    alert('Belum ada faktur yang dicentang. Centang dulu faktur yang mau ditagih di kolom paling kiri tabel.');
+    return;
+  }
+  const modal = document.getElementById('tagihan-choice-modal');
+  if (modal) modal.classList.add('show');
+}
+function closeTagihanChoiceModal(){
+  const modal = document.getElementById('tagihan-choice-modal');
+  if (modal) modal.classList.remove('show');
+}
+
+function buildTagihanExcelHtmlForSales(salesName, rows){
+  const today = todayStr2();
+  let totalTagihan = 0;
+  let bodyRows = '';
+  rows.forEach((r, i) => {
+    const tagihan = r.sisaRiil != null ? r.sisaRiil : r.nominal;
+    totalTagihan += tagihan;
+    const ket = String(r.sumber || '').toUpperCase().replace('RUPA-RUPA', 'RUPA2');
+    bodyRows += '<tr>' +
+      '<td align="center">' + (i + 1) + '</td>' +
+      '<td align="center">' + escapeHtml(r.noFaktur) + '</td>' +
+      '<td>' + escapeHtml(r.toko) + '</td>' +
+      '<td>' + escapeHtml(r.alamat || '') + '</td>' +
+      '<td align="center">' + escapeHtml(r.sales) + '</td>' +
+      '<td align="center">' + fmtDate(r.tglFaktur) + '</td>' +
+      '<td align="center">' + fmtDate(r.tglJatuhTempo) + '</td>' +
+      '<td align="right">' + fmtRpPlain(tagihan) + '</td>' +
+      '<td></td>' +
+      '<td></td>' +
+      '<td align="center">' + escapeHtml(ket) + '</td>' +
+    '</tr>';
+  });
+  return `
+  <table border="1" cellspacing="0" cellpadding="3" style="border-collapse:collapse;font-family:Calibri,Arial,sans-serif;font-size:11pt;">
+    <col style="width:38pt">
+    <col style="width:96pt">
+    <col style="width:123pt">
+    <col style="width:140pt">
+    <col style="width:63pt">
+    <col style="width:66pt">
+    <col style="width:71pt">
+    <col style="width:66pt">
+    <col style="width:78pt">
+    <col style="width:61pt">
+    <col style="width:65pt">
+    <tr><td colspan="2"><b>SALESMAN/DROPING</b></td><td colspan="9">: ${escapeHtml(salesName)}</td></tr>
+    <tr><td colspan="2"><b>TANGGAL</b></td><td colspan="9">: ${today}</td></tr>
+    <tr><td></td></tr>
+    <tr style="background:#DBE4EE;font-weight:bold;text-align:center;">
+      <td>NO</td><td>NO FAKTUR</td><td>NAMA OUTLET</td><td>ALAMAT</td><td>SALESMAN</td>
+      <td>TGL NOTA</td><td>TGL TEMPO</td><td>TAGIHAN</td><td colspan="2">PEMBAYARAN</td><td>KET</td>
+    </tr>
+    <tr style="background:#DBE4EE;font-weight:bold;text-align:center;">
+      <td></td><td></td><td></td><td></td><td></td><td></td><td></td><td></td><td>CASH</td><td>TRANSFER</td><td></td>
+    </tr>
+    ${bodyRows}
+    <tr style="background:#F1F5F9;font-weight:bold;">
+      <td colspan="7" align="center">TOTAL</td>
+      <td align="right">${fmtRpPlain(totalTagihan)}</td>
+      <td></td><td></td><td></td>
+    </tr>
+    <tr><td colspan="11"></td></tr>
+    <tr><td colspan="11"></td></tr>
+    <tr><td colspan="11"></td></tr>
+    <tr><td colspan="8"></td><td colspan="3">TOTAL SETORAN&nbsp;&nbsp;: Rp ....................................</td></tr>
+    <tr><td colspan="8"></td><td colspan="3">OPERASIONAL&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</td></tr>
+    <tr><td colspan="8"></td><td colspan="3">LAIN LAIN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</td></tr>
+    <tr><td colspan="11"></td></tr>
+    <tr><td colspan="8"></td><td colspan="3"><b>DISETORKAN&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;: Rp ....................................</b></td></tr>
+    <tr><td colspan="11"></td></tr>
+    <tr><td colspan="11"></td></tr>
+    <tr>
+      <td colspan="3" align="center">SALESMAN/DROPING</td><td colspan="5"></td>
+      <td colspan="3" align="center">Adm KASIR</td>
+    </tr>
+  </table>`;
+}
+
+function exportTagihanExcel(){
+  const rows = getArSelectedRows();
+  if (rows.length === 0){
+    alert('Belum ada faktur yang dicentang. Centang dulu faktur yang mau ditagih di kolom paling kiri tabel.');
+    return;
+  }
+  const bySales = {};
+  const order = [];
+  rows.forEach(r => {
+    const name = r.sales || '(Tanpa Sales)';
+    if (!bySales[name]) { bySales[name] = []; order.push(name); }
+    bySales[name].push(r);
+  });
+  let tables = '';
+  order.forEach(name => { tables += buildTagihanExcelHtmlForSales(name, bySales[name]) + '<br>'; });
+  const html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"></head><body>' + tables + '</body></html>';
+  const blob = new Blob([html], { type: 'application/vnd.ms-excel' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  const stamp = new Date().toISOString().slice(0,10);
+  link.download = 'Tagihan_Terpilih_' + stamp + '.xls';
+  link.click();
+}
+
 function printTagihanTerpilih(){
   const rows = getArSelectedRows();
   if (rows.length === 0){
@@ -5625,7 +5742,7 @@ function wireArMenuActions(){
   const cetakTagihanMenu = document.getElementById('btnCetakTagihanMenu');
   if (cetakTagihanMenu) cetakTagihanMenu.addEventListener('click', () => {
     closeMenu();
-    printTagihanTerpilih();
+    openTagihanChoiceModal();
   });
   const hapusSemua = document.getElementById('btnHapusSemuaAr');
   if (hapusSemua) hapusSemua.addEventListener('click', () => {
