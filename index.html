@@ -2083,11 +2083,13 @@ body.dark-mode .ano-j6 { background: rgba(13,148,136,0.15); color: #5eead4; }
   font-size: 0.68rem; font-weight: 700; white-space: nowrap;
 }
 .fix-b-tempo { background: #d1fae5; color: #047857; }
+.fix-b-tempo-sudah { background: #fee2e2; color: #991b1b; }
 .fix-b-cash { background: #e0f2fe; color: #0369a1; }
 .fix-b-lunas { background: #dcfce7; color: #15803d; }
 .fix-b-lengkap { background: #ede9fe; color: #6d28d9; }
 .fix-b-lain { background: #f1f5f9; color: #475569; }
 body.dark-mode .fix-b-tempo { background: rgba(16,185,129,0.15); color: #6ee7b7; }
+body.dark-mode .fix-b-tempo-sudah { background: rgba(239,68,68,0.2); color: #fca5a5; }
 body.dark-mode .fix-b-cash { background: rgba(14,165,233,0.15); color: #7dd3fc; }
 body.dark-mode .fix-b-lunas { background: rgba(34,197,94,0.15); color: #86efac; }
 body.dark-mode .fix-b-lengkap { background: rgba(139,92,246,0.15); color: #c4b5fd; }
@@ -2987,7 +2989,8 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         <div class="tab-panel" id="tab-fix">
           <div class="ano-wrap">
             <div class="ano-summary" id="fixSummary" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;margin-bottom:12px;">
-              <div class="ano-card fix-card" data-k="tempo" onclick="fixSetCat(&#39;tempo&#39;)"><div class="ano-card-l">Tempo + AR ada</div><div class="ano-card-v" id="fixCtempo">0</div></div>
+              <div class="ano-card fix-card" data-k="tempo-belum" onclick="fixSetCat(&#39;tempo-belum&#39;)"><div class="ano-card-l">⏰ Tempo belum jatuh tempo</div><div class="ano-card-v" id="fixCtempobelum">0</div></div>
+              <div class="ano-card fix-card" data-k="tempo-sudah" onclick="fixSetCat(&#39;tempo-sudah&#39;)"><div class="ano-card-l">🔴 Tempo sudah jatuh tempo</div><div class="ano-card-v" id="fixCtempossudah">0</div></div>
               <div class="ano-card fix-card" data-k="cash" onclick="fixSetCat(&#39;cash&#39;)"><div class="ano-card-l">Cash + Uang Masuk</div><div class="ano-card-v" id="fixCcash">499</div></div>
               <div class="ano-card fix-card" data-k="lunas" onclick="fixSetCat(&#39;lunas&#39;)"><div class="ano-card-l">AR sudah lunas</div><div class="ano-card-v" id="fixClunas">1</div></div>
               <div class="ano-card fix-card" data-k="lengkap" onclick="fixSetCat(&#39;lengkap&#39;)"><div class="ano-card-l">Lengkap (PJ+AR+UM)</div><div class="ano-card-v" id="fixClengkap">172</div></div>
@@ -7224,6 +7227,8 @@ function fixOnSearch() { fixApplyFilter(); }
 
 function fixBadge(cat) {
   const map = {
+    'tempo-belum': ['⏰ Belum jatuh', 'fix-b-tempo'],
+    'tempo-sudah': ['🔴 Sudah jatuh', 'fix-b-tempo-sudah'],
     tempo: ['Tempo + AR', 'fix-b-tempo'],
     cash: ['Cash + UM', 'fix-b-cash'],
     lunas: ['AR Lunas', 'fix-b-lunas'],
@@ -7279,7 +7284,18 @@ function fixClassify(p, a, u) {
     return { cat: 'lunas', ket: 'AR sudah LUNAS' + (hasP ? ' · ada di Penjualan' : '') + (hasU ? ' · ada di UM' : '') };
   }
   if (isTempo && hasA) {
-    return { cat: 'tempo', ket: 'Tempo di Penjualan + sudah ada di AR' + (hasU ? ' · ada jejak UM' : '') };
+    // Cek apakah TEMPO sudah jatuh tempo
+    const tglFaktur = hasP ? p.tglFaktur : (hasA ? a.tglFaktur : null);
+    const pastDue = tglFaktur ? anoIsPastDueTempo(tglFaktur, ANO_TEMPO_DEFAULT_DAYS) : false;
+    const arStatus = a.kategori === 'belum' ? 'belum bayar' : a.kategori === 'titip' ? 'pembayaran tertunda' : 'lunas';
+    
+    if (pastDue) {
+      // ⏰ Sudah jatuh tempo - perlu perhatian
+      return { cat: 'tempo-sudah', ket: '🔴 SUDAH JATUH TEMPO · Tempo di Penjualan + AR ' + arStatus + (hasU ? ' · ada jejak UM' : '') };
+    } else {
+      // Belum jatuh tempo - masih dalam periode pembayaran normal
+      return { cat: 'tempo-belum', ket: '⏰ Belum jatuh tempo · Tempo di Penjualan + AR ' + arStatus + (hasU ? ' · ada jejak UM' : '') };
+    }
   }
   if (isCash && hasU) {
     return { cat: 'cash', ket: 'Cash di Penjualan + ada di Uang Masuk' + (hasA ? ' · ada AR' : '') };
