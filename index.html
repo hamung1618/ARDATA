@@ -2301,6 +2301,135 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
 </style>
 
 <script src="https://cdn.jsdelivr.net/npm/dexie@4.0.11/dist/dexie.min.js"></script>
+
+<script>
+/* ============================================================
+   MAIN DATA PENJUALAN — ASYNC PARSING + DEXIE FILTER/SORT
+   ============================================================ */
+const DATACENTER_MAIN_DB_V1 = 'DATACENTER_MAIN_DB_V1';
+let mainDb = null;
+let mainQuerySeq = 0;
+
+function mainDbOpen(){
+  if(mainDb) return mainDb;
+  if(typeof Dexie === 'undefined') return null;
+  mainDb = new Dexie(DATACENTER_MAIN_DB_V1);
+  mainDb.version(1).stores({
+    sales: 'id, bulan, tanggal, noFaktur, sales, customer, alamat, produk, total'
+  });
+  return mainDb;
+}
+
+function mainNorm(v){
+  return String(v == null ? '' : v).trim().toUpperCase();
+}
+
+function mainNum(v){
+  if(typeof v === 'number') return v || 0;
+  return Number(String(v == null ? '' : v).replace(/[^0-9-]/g,'')) || 0;
+}
+
+/* Simpan Data Penjualan ke IndexedDB tanpa membuat query UI berat. */
+async function mainDbReplaceSales(rows){
+  const db = mainDbOpen();
+  if(!db) return false;
+
+  const mapped = (rows || []).map((r,i)=>({
+    id: String(r.__mainDbId || r.id || ('sales_'+i+'_'+String(r['No.Faktur']||r.noFaktur||''))),
+    bulan: String(r.Bulan || r.bulan || ''),
+    tanggal: r.Tanggal || r.tanggal || '',
+    noFaktur: String(r['No.Faktur'] || r.noFaktur || ''),
+    sales: String(r.Sales || r.sales || ''),
+    customer: String(r.Customer || r.customer || r.Toko || r.toko || ''),
+    alamat: String(r.Alamat || r.alamat || ''),
+    produk: String(r.Produk || r.produk || ''),
+    total: mainNum(r.Total || r.total)
+  }));
+
+  await db.transaction('rw', db.sales, async ()=>{
+    await db.sales.clear();
+    for(let i=0;i<mapped.length;i+=1000){
+      await db.sales.bulkPut(mapped.slice(i,i+1000));
+      await new Promise(requestAnimationFrame);
+    }
+  });
+  return true;
+}
+
+/* Query utama: filter dilakukan di Dexie, bukan allData.filter(). */
+async function mainDbQuery(filters={}){
+  const db=mainDbOpen();
+  if(!db) return null;
+
+  const seq=++mainQuerySeq;
+  let q=db.sales;
+
+  const bulan=String(filters.bulan||'').trim();
+  const sales=mainNorm(filters.sales);
+  const customer=mainNorm(filters.customer);
+  const alamat=mainNorm(filters.alamat);
+  const faktur=mainNorm(filters.faktur);
+  const produk=mainNorm(filters.produk);
+
+  if(bulan){
+    q=q.where('bulan').equals(bulan);
+  }
+
+  let rows=await q.toArray();
+
+  /* Exact/index filtering above, text contains filtering here.
+     Tetap async agar event loop tidak terkunci terlalu lama. */
+  const out=[];
+  for(let i=0;i<rows.length;i++){
+    const r=rows[i];
+    const ok =
+      (!sales || mainNorm(r.sales).includes(sales)) &&
+      (!customer || mainNorm(r.customer).includes(customer)) &&
+      (!alamat || mainNorm(r.alamat).includes(alamat)) &&
+      (!faktur || mainNorm(r.noFaktur).includes(faktur)) &&
+      (!produk || mainNorm(r.produk).includes(produk));
+    if(ok) out.push(r);
+    if((i % 1000)===999) await new Promise(requestAnimationFrame);
+  }
+
+  return seq===mainQuerySeq ? out : null;
+}
+
+/* Sorting dilakukan setelah hasil query, secara async/chunked. */
+async function mainDbQuerySorted(filters={}, sortKey='tanggal', dir='desc'){
+  const rows=await mainDbQuery(filters);
+  if(!rows) return null;
+
+  const mul=String(dir).toLowerCase()==='asc' ? 1 : -1;
+  rows.sort((a,b)=>{
+    let av=a[sortKey], bv=b[sortKey];
+    if(sortKey==='total'){ av=Number(av)||0; bv=Number(bv)||0; }
+    else { av=String(av??'').toUpperCase(); bv=String(bv??'').toUpperCase(); }
+    return av<bv ? -1*mul : av>bv ? 1*mul : 0;
+  });
+  return rows;
+}
+
+/* Parsing async: proses chunked, sehingga import besar tidak membekukan UI. */
+async function mainParseRowsAsync(rows, onProgress){
+  const out=[];
+  const chunk=1000;
+  for(let i=0;i<(rows||[]).length;i+=chunk){
+    const part=rows.slice(i,i+chunk);
+    for(const r of part) out.push(r);
+    if(onProgress) onProgress(Math.min(100, Math.round(((i+part.length)/(rows||[]).length)*100)));
+    await new Promise(requestAnimationFrame);
+  }
+  return out;
+}
+
+/* Fungsi publik yang dapat dipakai setelah parsing/import Penjualan. */
+async function persistMainSalesAsync(rows, onProgress){
+  const parsed=await mainParseRowsAsync(rows,onProgress);
+  await mainDbReplaceSales(parsed);
+  return parsed.length;
+}
+</script>
 </head>
 <body class="">
 <div id="tagihanPrintArea" style="display:none;">
@@ -9961,3 +10090,24 @@ async function scanUmPenjualanFast(){
     if(info) info.textContent='Scan gagal: '+(e.message||e);
   }
 }
+
+<script>
+/* Async Dexie entry point for Data Penjualan.
+   Wire the existing filter controls to this function when migrating the UI. */
+async function applyFiltersAsyncDexie(){
+  const getVal=id=>{const e=document.getElementById(id); return e?e.value:'';};
+  const rows=await mainDbQuery({
+    bulan:getVal('filter-bulan'),
+    sales:getVal('filter-sales'),
+    customer:getVal('filter-customer'),
+    alamat:getVal('filter-alamat'),
+    faktur:getVal('filter-faktur'),
+    produk:getVal('filter-produk')
+  });
+  if(rows && typeof filteredData!=='undefined'){
+    filteredData=rows;
+    if(typeof currentPage!=='undefined') currentPage=1;
+    if(typeof render==='function') render();
+  }
+}
+</script>
