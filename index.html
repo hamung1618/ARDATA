@@ -2851,7 +2851,7 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
               <div class="scanum-card ok"><span>🟢 Cocok</span><strong id="scanCOk">0</strong></div>
               <div class="scanum-card partial"><span>🟡 Sebagian</span><strong id="scanCPartial">0</strong></div>
               <div class="scanum-card warn"><span>⚠️ Nominal Berbeda</span><strong id="scanCAmount">0</strong></div>
-              <div class="scanum-card danger"><span>🔴 Belum Ditemukan UM</span><strong id="scanCMissing">0</strong></div>
+              <div class="scanum-card danger"><span>🔴 Belum Bayar (Tempo)</span><strong id="scanCMissing">0</strong></div>
               <div class="scanum-card orphan"><span>🔵 UM Tidak Ada di PJ</span><strong id="scanCOrphan">0</strong></div>
             </div>
             <div class="scanum-toolbar">
@@ -2861,7 +2861,7 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
                 <option value="ok">🟢 Cocok</option>
                 <option value="partial">🟡 Sebagian</option>
                 <option value="amount">⚠️ Nominal Berbeda</option>
-                <option value="missing">🔴 Belum Ditemukan UM</option>
+                <option value="missing">🔴 Belum Bayar / Tanpa Nominal</option>
                 <option value="orphan">🔵 UM Tidak Ada di PJ</option>
               </select>
               <select id="scanumType" onchange="scanUmRender()">
@@ -9202,11 +9202,53 @@ function scanUmIsCashPembayaran(val){
 function scanUmPembayaranLabel(val){
   return scanUmIsCashPembayaran(val) ? 'CASH' : 'TEMPO';
 }
+function scanUmStatusLabel(status, missingKind){
+  if(status==='ok') return '🟢 COCOK';
+  if(status==='partial') return '🟡 SEBAGIAN';
+  if(status==='amount') return '⚠️ NOMINAL BERBEDA';
+  if(status==='missing') return missingKind==='found' ? '🔴 UM TANPA NOMINAL' : '🔴 BELUM DITEMUKAN UM';
+  return '🔵 UM TIDAK ADA DI PJ';
+}
+function scanUmPickSectionLabel(sectionMap, wantedSec){
+  const keys=sectionMap?Object.keys(sectionMap).map(k=>String(k||'').trim().toUpperCase()).filter(Boolean):[];
+  if(wantedSec&&keys.includes(wantedSec)) return wantedSec;
+  if(keys.includes('CASH DROPPING')) return 'CASH DROPPING';
+  if(keys.includes('PIUTANG TEMPO')) return 'PIUTANG TEMPO';
+  return keys[0]||'';
+}
+function scanUmHitungStatus(ctx){
+  const TOL=scanUmNum(ctx&&ctx.tol!=null?ctx.tol:1000)||1000;
+  const hasPj=!!(ctx&&ctx.hasPenjualan!==false);
+  const matched=!!(ctx&&ctx.matched);
+  const isTempo=!!(ctx&&ctx.isTempo);
+  const mode=(ctx&&ctx.mode)||'NO FAKTUR';
+  const pj=Math.abs(scanUmNum(ctx&&ctx.pjNominal));
+  const um=Math.abs(scanUmNum(ctx&&ctx.umNominal));
+  const wantedSec=(ctx&&ctx.wantedSec)||scanUmSectionForType(isTempo);
+  const actualSec=String((ctx&&ctx.actualSec)||'').trim().toUpperCase();
+  const secMatch=!!(ctx&&ctx.secMatch);
+  const hasTitip=!!(ctx&&ctx.hasTitip);
+  let status='missing', missingKind=matched?'found':'none', statusClass='bad';
+  let statusText=hasPj?('Belum ditemukan pembayaran di '+wantedSec):'No. Faktur tidak ditemukan di Data Penjualan.';
+  const secNote=(!secMatch&&matched&&actualSec)?('Pembayaran tercatat di bagian '+actualSec+', bukan '+wantedSec+'. '):'';
+  if(!hasPj){
+    status='orphan';
+  } else if(matched){
+    if(um<=TOL){status='missing';missingKind='found';statusClass='bad';statusText='Baris Uang Masuk untuk faktur ini ditemukan, tetapi kolom nominal bayar kosong/0. '+secNote;}
+    else if(Math.abs(um-pj)<=TOL){status='ok';statusClass='ok';statusText=secNote+'Nominal pembayaran sesuai. '+(mode!=='NO FAKTUR'?'Identitas cocok; periksa No. Faktur yang kemungkinan salah ketik.':'No. Faktur dan identitas transaksi cocok.');}
+    else if(um<pj-TOL){status='partial';statusClass='warn';statusText=secNote+'Pembayaran sebagian. Sisa '+scanUmMoney(Math.max(0,pj-um))+'.';}
+    else {status='amount';statusClass='warn';statusText=secNote+'Total pembayaran lebih besar dari penjualan sebesar '+scanUmDetailMoney(Math.abs(um-pj))+'.';}
+    if(hasTitip){if(statusClass==='ok')statusClass='warn';statusText+=' Terdapat pembayaran berstatus TITIP.';}
+  }
+  return {status,missingKind,statusClass,statusText,pjNominal:pj,umNominal:um,selisih:um-pj,wantedSec,actualSec,secMatch,matched,hasTitip,statusLabel:scanUmStatusLabel(status,missingKind)};
+}
 
 function scanUmBuild(){
   // Rekonsiliasi konservatif: No. Faktur adalah kunci pertama, tetapi BUKAN satu-satunya.
   // Bila nomor salah ketik, sistem mencoba Customer/Toko + Alamat + Sales + Nominal/Tanggal.
-  // CASH hanya dipasangkan ke CASH DROPPING; TEMPO hanya ke PIUTANG TEMPO.
+  // Pembayaran di Uang Masuk dengan No. Faktur yang SAMA tetaplah pembayaran faktur itu,
+  // walau dicatat di bagian CASH DROPPING vs PIUTANG TEMPO yang berbeda — beda bagian hanya
+  // menjadi catatan peringatan, BUKAN alasan menandai "Belum".
   const pjRows=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
   const ums=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
   const TOL=1000, pjMap=Object.create(null), umMap=Object.create(null);
@@ -9252,22 +9294,15 @@ function scanUmBuild(){
 
   Object.keys(pjMap).forEach(f=>{
     const p=pjMap[f]; seen.add(f); const pj=Math.abs(scanUmNum(p.nominal)); const isTempo=p.tempo&&!p.cash; let u=umMap[f]; let mode=u?'NO FAKTUR':'TIDAK DITEMUKAN';
-    // Exact invoice is accepted only when its section is correct for CASH/TEMPO.
-    if(u && !u.sections[scanUmSectionForType(isTempo)]) u=null;
+    // No. Faktur adalah kunci utama: jangan dibatalkan hanya karena bagian UM berbeda.
+    const wantedSec=scanUmSectionForType(isTempo);
+    const secMatch=!!(u && u.sections[wantedSec]);
     // If invoice is missing/wrong, find the strongest identity match in the correct section.
     if(!u){let best=null,bestScore=0;Object.keys(umMap).forEach(k=>{const cand=umMap[k];if(usedUm.has(k))return;const sc=groupScore(p,cand,isTempo);if(sc>bestScore){bestScore=sc;best=cand;}});if(best&&bestScore>=60){u=best;mode='IDENTITAS (FAKTUR MUNGKIN SALAH KETIK)';}}
     if(u){const uf=scanUmFaktur(u.noFaktur);usedUm.add(uf);}
-    const um=u?Math.abs(scanUmNum(u.bayar)):0, selisih=um-pj;
-    let status='missing',ket='Belum ditemukan pembayaran di '+(isTempo?'PIUTANG TEMPO':'CASH DROPPING');
-    if(u){
-      if(um<=TOL){status='missing';ket='Data ditemukan, tetapi belum ada nominal pembayaran yang tercatat di '+scanUmSectionForType(isTempo)+'.';}
-      else if(Math.abs(selisih)<=TOL){status='ok';ket='Nominal pembayaran sesuai. '+(mode!=='NO FAKTUR'?'Identitas cocok; periksa No. Faktur yang kemungkinan salah ketik.':'No. Faktur dan identitas transaksi cocok.');}
-      else if(um<pj-TOL){status='partial';ket='Pembayaran sebagian. Sisa '+scanUmMoney(Math.max(0,pj-um))+'.';}
-      else {status='amount';ket='Total pembayaran lebih besar dari penjualan sebesar '+scanUmMoney(Math.abs(selisih))+'.';}
-      if(u.hasTitip)ket+=' Terdapat pembayaran berstatus TITIP.';
-    }
-    const section=u?scanUmSectionForType(isTempo):'';
-    rows.push({kind:'pj',status,noFaktur:p.noFaktur,tanggal:p.tanggal,sales:p.sales,toko:p.toko,alamat:p.alamat,jenis:isTempo?'TEMPO':'CASH',pj,um,selisih,ket,lines:p.lines,tempo:isTempo,umCount:u?u.count:0,umPaymentRows:u?u.realPaymentRows:0,umTitipRows:u?u.titipRows:0,matchMode:mode,umSection:section,dropSales:u&&u.dropSales?u.dropSales.join(', '):'',umDateFirst:u?u.tanggalPertama:'',umDateLast:u?u.tanggalTerakhir:'',matchedFaktur:u?u.noFaktur:''});
+    const actualSec=scanUmPickSectionLabel(u&&u.sections?u.sections:null,wantedSec);
+    const outcome=scanUmHitungStatus({hasPenjualan:true,matched:!!u,isTempo,mode,pjNominal:pj,umNominal:u?u.bayar:0,wantedSec,actualSec,secMatch:!!(u&&u.sections[wantedSec]),hasTitip:!!(u&&u.hasTitip),tol:TOL});
+    rows.push({kind:'pj',status:outcome.status,missingKind:outcome.missingKind,noFaktur:p.noFaktur,tanggal:p.tanggal,sales:p.sales,toko:p.toko,alamat:p.alamat,jenis:isTempo?'TEMPO':'CASH',pj:outcome.pjNominal,um:outcome.umNominal,selisih:outcome.selisih,ket:outcome.statusText,lines:p.lines,tempo:isTempo,umCount:u?u.count:0,umPaymentRows:u?u.realPaymentRows:0,umTitipRows:u?u.titipRows:0,matchMode:mode,umSection:actualSec,dropSales:u&&u.dropSales?u.dropSales.join(', '):'',umDateFirst:u?u.tanggalPertama:'',umDateLast:u?u.tanggalTerakhir:'',matchedFaktur:u?u.noFaktur:''});
   });
 
   Object.keys(umMap).forEach(f=>{
@@ -9276,22 +9311,12 @@ function scanUmBuild(){
   });
   return rows;
 }
-function scanUmPenjualan(){
-  scanUmRows=scanUmBuild(); scanUmDone=true;
-  document.getElementById('scanCAll').textContent=scanUmRows.filter(r=>r.kind==='pj').length.toLocaleString('id-ID');
-  document.getElementById('scanCOk').textContent=scanUmRows.filter(r=>r.status==='ok').length.toLocaleString('id-ID');
-  document.getElementById('scanCPartial').textContent=scanUmRows.filter(r=>r.status==='partial').length.toLocaleString('id-ID');
-  document.getElementById('scanCAmount').textContent=scanUmRows.filter(r=>r.status==='amount').length.toLocaleString('id-ID');
-  document.getElementById('scanCMissing').textContent=scanUmRows.filter(r=>r.status==='missing' && r.tempo).length.toLocaleString('id-ID');
-  document.getElementById('scanCOrphan').textContent=scanUmRows.filter(r=>r.status==='orphan').length.toLocaleString('id-ID');
-  scanUmRefreshMonthOptions();
-  scanUmRender();
-}
-function scanUmRender(){
-  const tb=document.getElementById('scanumTbody'); if(!tb) return;
-  if(!scanUmDone){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa data.</td></tr>';return;}
-  const q=(document.getElementById('scanumSearch')?.value||'').toLowerCase().trim(); const f=document.getElementById('scanumFilter')?.value||'all'; const typ=document.getElementById('scanumType')?.value||'all';
-  const m1=document.getElementById('scanumMonth1')?.value||'all'; const m2=document.getElementById('scanumMonth2')?.value||'';
+function scanUmGetFilteredRows(){
+  const q=(document.getElementById('scanumSearch')?.value||'').toLowerCase().trim();
+  const f=document.getElementById('scanumFilter')?.value||'all';
+  const typ=document.getElementById('scanumType')?.value||'all';
+  const m1=document.getElementById('scanumMonth1')?.value||'all';
+  const m2=document.getElementById('scanumMonth2')?.value||'';
   const months=m1==='all' ? null : new Set([m1, ...(m2 ? [m2] : [])]);
   let rows=scanUmRows.filter(r=>{
     const typeOk=typ==='all'||(typ==='tempo'&&r.tempo)||(typ==='cash'&&r.kind==='pj'&&!r.tempo)||(typ==='cashdropping'&&r.umSection==='CASH DROPPING');
@@ -9299,6 +9324,30 @@ function scanUmRender(){
     return (f==='all'||r.status===f) && typeOk && monthOk;
   });
   if(q) rows=rows.filter(r=>(r.noFaktur+' '+r.sales+' '+r.toko+' '+(r.dropSales||'')+' '+(r.umSection||'')).toLowerCase().includes(q));
+  return { rows, months };
+}
+function scanUmUpdateCards(rows){
+  const fmt=n=>Number(n||0).toLocaleString('id-ID');
+  const pjRows=rows.filter(r=>r.kind==='pj');
+  document.getElementById('scanCAll').textContent=fmt(pjRows.length);
+  document.getElementById('scanCOk').textContent=fmt(rows.filter(r=>r.status==='ok').length);
+  document.getElementById('scanCPartial').textContent=fmt(rows.filter(r=>r.status==='partial').length);
+  document.getElementById('scanCAmount').textContent=fmt(rows.filter(r=>r.status==='amount').length);
+  document.getElementById('scanCMissing').textContent=fmt(rows.filter(r=>r.status==='missing' && r.tempo).length);
+  document.getElementById('scanCOrphan').textContent=fmt(rows.filter(r=>r.status==='orphan').length);
+}
+function scanUmPenjualan(){
+  scanUmRows=scanUmBuild(); scanUmDone=true;
+  scanUmRefreshMonthOptions();
+  scanUmRender();
+}
+function scanUmRender(){
+  const tb=document.getElementById('scanumTbody'); if(!tb) return;
+  if(!scanUmDone){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa data.</td></tr>';return;}
+  scanUmRows=scanUmBuild();
+  scanUmRefreshMonthOptions();
+  const { rows, months } = scanUmGetFilteredRows();
+  scanUmUpdateCards(rows);
   const info=document.getElementById('scanumInfo'); if(info) {
     const mtxt=months ? [...months].map(scanUmMonthLabel).join(' + ') : 'semua bulan';
     info.textContent='Penjualan: '+mtxt+' · Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Pembayaran UM tetap dibaca lintas bulan (penting untuk TEMPO akhir bulan).';
@@ -9308,17 +9357,22 @@ function scanUmRender(){
   shown.forEach((r,i)=>{ const badge=r.status==='ok'?'ok':r.status==='partial'?'partial':r.status==='amount'?'amount':r.status==='missing'?'missing':'orphan'; const sign=r.selisih>0?'+':''; const faktur=scanUmSafe(r.noFaktur);
     const salesLabel = r.umSection==='CASH DROPPING' && r.dropSales ? scanUmSafe(r.sales||'—')+' <span class="scanum-muted">('+scanUmSafe(r.dropSales)+')</span>' : scanUmSafe(r.sales||'—');
     const jenisLabel = r.umSection==='CASH DROPPING' ? 'CASH DROPPING' : scanUmSafe(r.jenis);
-    html+='<tr><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(r.status==='ok'?'🟢 COCOK':r.status==='partial'?'🟡 SEBAGIAN':r.status==='amount'?'⚠️ NOMINAL BERBEDA':r.status==='missing'?'🔴 BELUM DITEMUKAN UM':'🔵 UM TIDAK ADA DI PJ')+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+faktur.replace(/'/g,"\\'")+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+salesLabel+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+jenisLabel+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
+    html+='<tr><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(scanUmStatusLabel(r.status,r.missingKind))+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+faktur.replace(/'/g,"\\'")+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+salesLabel+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+jenisLabel+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
   });
   if(rows.length>max) html+='<tr><td colspan="11" class="scanum-empty">Menampilkan '+max.toLocaleString('id-ID')+' dari '+rows.length.toLocaleString('id-ID')+' hasil. Gunakan pencarian/filter untuk mempersempit.</td></tr>';
   tb.innerHTML=html;
 }
 function scanUmOpenFaktur(no){
+  if(scanUmDone){
+    scanUmRows=scanUmBuild();
+    scanUmRender();
+  }
   const fKey=scanUmFaktur(no);
   const allPj=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
   const allUm=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
   const pjRows=allPj.filter(r=>scanUmFaktur(r['No.Faktur'])===fKey);
   let umRows=allUm.filter(r=>scanUmFaktur(r.faktur)===fKey);
+  let matchMode='NO FAKTUR';
   // Bila No. Faktur salah ketik, cari berdasarkan identitas transaksi + bagian yang benar.
   if(pjRows.length && !umRows.length){
     const first=pjRows[0], pjNom=pjRows.reduce((a,r)=>a+scanUmNum(r.Total),0);
@@ -9328,7 +9382,7 @@ function scanUmOpenFaktur(no){
     allUm.forEach(r=>{const k=scanUmFaktur(r.faktur);if(!k)return;(groups[k]||(groups[k]=[])).push(r);});
     let best=null,bestScore=0;
     Object.keys(groups).forEach(k=>{const rs=groups[k];if(!rs.some(r=>String(r.section||'').trim().toUpperCase()===wanted))return;const u=rs[0];let sc=0;const toko=scanUmTextSimilarity(first.Customer,u.toko),alamat=scanUmTextSimilarity(first.Alamat,u.alamat),sales=scanUmSalesMatch(first.Sales,u.sales),um=rs.reduce((a,r)=>a+scanUmDetailPayment(r),0);if(toko===1)sc+=40;else if(toko>=.5)sc+=25;if(alamat===1)sc+=25;else if(alamat>=.5)sc+=12;if(sales)sc+=20;if(Math.abs(um-pjNom)<=1000)sc+=15;if(sc>bestScore){bestScore=sc;best=rs;}});
-    if(best&&bestScore>=60)umRows=best;
+    if(best&&bestScore>=60){umRows=best;matchMode='IDENTITAS (FAKTUR MUNGKIN SALAH KETIK)';}
   }
   const arRows=(typeof state!=='undefined'?['A','B'].flatMap(k=>state[k]&&Array.isArray(state[k].rows)?state[k].rows.filter(r=>scanUmFaktur(r.noFaktur)===fKey).map(r=>({...r,_slot:k,_label:state[k].label})):[]):[]);
   if(!pjRows.length&&!umRows.length&&!arRows.length){alert('No. Faktur '+no+' tidak ditemukan pada Data Penjualan maupun Data Uang Masuk.');return;}
@@ -9360,11 +9414,12 @@ function scanUmShowFakturModal(no,pjRows,umRows,arRows){
   const sales=first.Sales||umFirst.sales||'—';
   const tanggal=first.Tanggal||'—';
 
-  let statusClass='ok', statusText='Nominal Uang Masuk sesuai dengan Penjualan.';
-  if(!pjRows.length){statusClass='bad';statusText='No. Faktur tidak ditemukan di Data Penjualan.';}
-  else if(!umRows.length || umNominal===0){statusClass='bad';statusText='Belum ada nominal pembayaran pada bagian Uang Masuk yang semestinya.';}
-  else if(Math.abs(selisih)>1000){statusClass='warn';statusText='Nominal berbeda. Selisih '+(selisih>0?'+':'')+scanUmDetailMoney(selisih)+'.';}
-  else if(umRows.some(r=>String(r.status||'').toUpperCase()==='TITIP')){statusClass='warn';statusText='Nominal sesuai, tetapi terdapat baris berstatus TITIP.';}
+  const secMap=Object.create(null);
+  umRows.forEach(r=>{const sec=String(r.section||'').trim().toUpperCase();if(sec)secMap[sec]=(secMap[sec]||0)+1;});
+  const wantSec=scanUmSectionForType(!scanUmIsCashPembayaran(first.Pembayaran));
+  const actualSec=scanUmPickSectionLabel(secMap,wantSec) || String(umFirst.section||'').trim().toUpperCase();
+  const outcome=scanUmHitungStatus({hasPenjualan:!!pjRows.length,matched:!!umRows.length,isTempo:!scanUmIsCashPembayaran(first.Pembayaran),mode:matchMode,pjNominal,umNominal,wantedSec:wantSec,actualSec,secMatch:!!(actualSec&&actualSec===wantSec),hasTitip:umRows.some(r=>String(r.status||'').toUpperCase()==='TITIP'),tol:1000});
+  let statusClass=outcome.statusClass, statusText=outcome.statusText;
 
   let html='<div class="scanum-detail-status '+statusClass+'"><b>Hasil scan:</b> '+scanUmEsc(statusText)+'</div>';
 
@@ -9398,9 +9453,10 @@ function scanUmShowFakturModal(no,pjRows,umRows,arRows){
   html+='<div><span class="lbl">Selisih</span><strong>'+scanUmDetailMoney(selisih)+'</strong></div>';
   html+='<div><span class="lbl">Jumlah Riwayat</span><strong>'+umRows.length+'</strong></div>';
   html+='<div><span class="lbl">AR Terkait</span><strong>'+arRows.length+' baris</strong></div>';
+  html+='<div><span class="lbl">Hasil Scan</span><strong>'+scanUmEsc(outcome.statusLabel)+'</strong></div>';
   html+='</div>';
   if(umRows.length){
-    html+='<div style="overflow:auto;max-height:280px"><table class="scanum-detail-table"><thead><tr><th>Tgl Masuk</th><th>Bagian</th><th>Sales</th><th class="num">Tagihan</th><th class="num">Bayar</th><th>Status</th></tr></thead><tbody>';
+    html+='<div style="overflow:auto;max-height:280px"><table class="scanum-detail-table"><thead><tr><th>Tgl Masuk</th><th>Bagian</th><th>Sales</th><th class="num">Tagihan</th><th class="num">Bayar</th><th>Status UM</th></tr></thead><tbody>';
     umRows.forEach(r=>{
       const bayar=scanUmDetailPayment(r);
       html+='<tr><td>'+scanUmEsc(r.date||'—')+'</td><td>'+scanUmEsc(r.section||'—')+'</td><td>'+scanUmEsc(r.sales||'—')+'</td><td class="num">'+scanUmDetailMoney(r.tagihan)+'</td><td class="num">'+scanUmDetailMoney(bayar)+'</td><td>'+scanUmEsc(r.status||'—')+'</td></tr>';
@@ -9498,6 +9554,7 @@ function scanUmExportExcel(){
 </script>
 
 
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 </body>
