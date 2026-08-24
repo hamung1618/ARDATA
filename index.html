@@ -2263,6 +2263,11 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 body.dark-mode .scanum-title-mini{color:#e2e8f0}
 .scanum-menu-wrap .btn{height:32px;font-size:.72rem;padding:0 10px}
 .scanum-table-wrap{height:calc(100vh - 385px);min-height:360px;overflow:auto;border:1px solid #dbe5ef;border-radius:12px;background:#fff}.scanum-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.72rem}.scanum-table th{position:sticky;top:0;z-index:2;background:#0f2942;color:#fff;padding:9px 7px;text-align:left;white-space:nowrap}.scanum-table td{padding:8px 7px;border-bottom:1px solid #edf2f7;vertical-align:middle}.scanum-table tbody tr:hover{background:#f8fbff}.scanum-table .num{text-align:right;white-space:nowrap}.scanum-empty{text-align:center!important;padding:50px 20px!important;color:#64748b}.scanum-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:.64rem;font-weight:700;white-space:nowrap}.scanum-badge.ok{background:#dcfce7;color:#166534}.scanum-badge.partial{background:#fef9c3;color:#854d0e}.scanum-badge.amount{background:#ffedd5;color:#9a3412}.scanum-badge.missing{background:#fee2e2;color:#991b1b}.scanum-badge.orphan{background:#dbeafe;color:#1e40af}.scanum-badge.cash{background:#f1f5f9;color:#475569}.scanum-muted{color:#94a3b8}.scanum-link{color:#2563eb;text-decoration:none;font-weight:700}.scanum-link:hover{text-decoration:underline}
+#tab-scanum .scanum-table th:nth-child(2),
+#tab-scanum .scanum-table td:nth-child(2){min-width:148px;width:148px}
+#tab-scanum .scanum-badge{justify-content:center;min-width:132px;padding:4px 8px;font-size:.62rem;letter-spacing:.01em}
+#tab-scanum .scanum-table td:nth-child(11){min-width:260px;white-space:normal;line-height:1.35}
+
 body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table-wrap{background:#0f1c2e;border-color:#24384f}body.dark-mode #tab-scanum .scanum-card strong{color:#e2e8f0}body.dark-mode #tab-scanum .scanum-card span,body.dark-mode #tab-scanum .scanum-info{color:#94a3b8}body.dark-mode #tab-scanum .scanum-toolbar input,body.dark-mode #tab-scanum .scanum-toolbar select{background:#0f1c2e;color:#e2e8f0;border-color:#334155}body.dark-mode #tab-scanum .scanum-table td{border-color:#24384f;color:#cbd5e1}body.dark-mode #tab-scanum .scanum-table tbody tr:hover{background:#16243a}
 @media(max-width:1000px){.scanum-cards{grid-template-columns:repeat(3,1fr)}.scanum-toolbar{flex-wrap:wrap}.scanum-info{margin-left:0}.scanum-table-wrap{height:calc(100vh - 500px)}}
 @media(max-width:600px){.scanum-cards{grid-template-columns:repeat(2,1fr)}.scanum-toolbar input{width:100%}.scanum-toolbar select{flex:1}}
@@ -9236,9 +9241,9 @@ function scanUmPembayaranLabel(val){
 function scanUmStatusLabel(status, missingKind){
   if(status==='ok') return '🟢 COCOK';
   if(status==='partial') return '🟡 SEBAGIAN';
-  if(status==='amount') return '⚠️ NOMINAL BERBEDA';
-  if(status==='missing') return missingKind==='found' ? '🔴 UM TANPA NOMINAL' : '🔴 BELUM DITEMUKAN UM';
-  return '🔵 UM TIDAK ADA DI PJ';
+  if(status==='amount') return '🟠 NOMINAL BEDA';
+  if(status==='missing') return missingKind==='found' ? '🔴 UM TANPA NOMINAL' : '🔴 BELUM ADA UM';
+  return '🔵 UM TANPA PENJUALAN';
 }
 function scanUmPickSectionLabel(sectionMap, wantedSec){
   const keys=sectionMap?Object.keys(sectionMap).map(k=>String(k||'').trim().toUpperCase()).filter(Boolean):[];
@@ -9438,7 +9443,7 @@ function scanUmRowHtml(r, i){
   const fEsc=faktur.replace(/'/g,"\\'");
   const salesLabel = r.umSection==='CASH DROPPING' && r.dropSales ? scanUmSafe(r.sales||'—')+' <span class="scanum-muted">('+scanUmSafe(r.dropSales)+')</span>' : scanUmSafe(r.sales||'—');
   const jenisLabel = r.umSection==='CASH DROPPING' ? 'CASH DROPPING' : scanUmSafe(r.jenis);
-  return '<tr style="height:'+SCANUM_ROW_H+'px;"><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(scanUmStatusLabel(r.status,r.missingKind))+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+fEsc+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+salesLabel+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+jenisLabel+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
+  return '<tr style="height:'+SCANUM_ROW_H+'px;"><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'" title="'+scanUmSafe(r.ket||scanUmStatusLabel(r.status,r.missingKind))+'">'+scanUmSafe(scanUmStatusLabel(r.status,r.missingKind))+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+fEsc+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+salesLabel+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+jenisLabel+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
 }
 
 function scanUmRender(){
@@ -9510,7 +9515,7 @@ function scanUmOpenFaktur(no){
   }
   const arRows=(typeof state!=='undefined'?['A','B'].flatMap(k=>state[k]&&Array.isArray(state[k].rows)?state[k].rows.filter(r=>scanUmFaktur(r.noFaktur)===fKey).map(r=>({...r,_slot:k,_label:state[k].label})):[]):[]);
   if(!pjRows.length&&!umRows.length&&!arRows.length){alert('No. Faktur '+no+' tidak ditemukan pada Data Penjualan maupun Data Uang Masuk.');return;}
-  scanUmShowFakturModal(String(no),pjRows,umRows,arRows);
+  scanUmShowFakturModal(String(no),pjRows,umRows,arRows,matchMode);
 }
 
 function scanUmEsc(v){
@@ -9523,14 +9528,17 @@ function scanUmDetailMoney(v){
 function scanUmDetailPayment(r){
   return scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf);
 }
-function scanUmShowFakturModal(no,pjRows,umRows,arRows){
+function scanUmShowFakturModal(no,pjRows,umRows,arRows,matchMode){
   const modal=document.getElementById('scanUmFakturModal');
   const body=document.getElementById('scanUmModalBody');
   const actions=document.getElementById('scanUmModalActions');
   if(!modal||!body||!actions) return;
+  matchMode = matchMode || 'NO FAKTUR';
 
   const pjNominal=pjRows.reduce((a,r)=>a+(Number(r.Total)||0),0);
   const umNominal=umRows.reduce((a,r)=>a+scanUmDetailPayment(r),0);
+  const titleEl=document.getElementById('scanUmModalTitle');
+  if(titleEl) titleEl.textContent='Detail Faktur · '+String(no||'—');
   const selisih=umNominal-pjNominal;
   const first=pjRows[0]||{};
   const umFirst=umRows[0]||{};
