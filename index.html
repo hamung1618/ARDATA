@@ -977,6 +977,19 @@
                 white-space: nowrap;
                 border-radius: 10px;
             }
+
+            /* Sembunyikan bar "faktur dipilih" di HP */
+            #arSelBar {
+                display: none !important;
+            }
+
+            /* Sembunyikan kolom Sales & Tgl Faktur di tabel AR khusus tampilan HP */
+            #dataTable th:nth-child(3),
+            #dataTable td:nth-child(3),
+            #dataTable th:nth-child(6),
+            #dataTable td:nth-child(6) {
+                display: none !important;
+            }
         }
 
         /* Print styles */
