@@ -1005,6 +1005,29 @@
             .ano-card-v {
                 font-size: 1.05rem !important;
             }
+
+            /* Header tab Scan Uang Masuk × Penjualan tetap ringkas sebaris di HP */
+            .scanum-head {
+                flex-direction: row !important;
+                align-items: center !important;
+                padding: 2px !important;
+                flex-wrap: nowrap !important;
+            }
+            .scanum-head h2 {
+                font-size: 0.85rem !important;
+                line-height: 1.25 !important;
+            }
+
+            /* Kartu ringkasan scan jadi 2 kolom & lebih tipis di HP */
+            .scanum-cards {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+            .scanum-card span {
+                font-size: 0.6rem !important;
+            }
+            .scanum-card strong {
+                font-size: 0.78rem !important;
+            }
         }
 
         /* Print styles */
@@ -2220,13 +2243,13 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 <style id="scanum-style">
 #tab-scanum{padding:0!important;background:transparent}
 .scanum-wrap{padding:18px;max-width:100%;box-sizing:border-box}
-.scanum-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 20px;border:1px solid #dbe5ef;border-radius:14px;background:linear-gradient(135deg,#f8fbff,#fff);box-shadow:0 4px 18px rgba(15,41,66,.06)}
+.scanum-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:4px 2px}
 .scanum-head h2{margin:0 0 5px;font-size:1.08rem;color:#0f2942}.scanum-head p{margin:0;font-size:.76rem;color:#64748b}.scanum-actions{display:flex;gap:8px;flex-wrap:wrap}
 .scanum-note{margin:12px 0;padding:10px 13px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a5f;font-size:.76rem}
-.scanum-cards{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:9px;margin:12px 0}.scanum-card{border:1px solid #e2e8f0;border-radius:11px;padding:11px 12px;background:#fff;min-height:56px}.scanum-card span{display:block;font-size:.68rem;color:#64748b}.scanum-card strong{display:block;margin-top:5px;font-size:1.15rem;color:#0f2942}.scanum-card.ok{border-left:4px solid #16a34a}.scanum-card.partial{border-left:4px solid #eab308}.scanum-card.warn{border-left:4px solid #f59e0b}.scanum-card.danger{border-left:4px solid #dc2626}.scanum-card.orphan{border-left:4px solid #2563eb}
+.scanum-cards{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;margin:12px 0}.scanum-card{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid #e2e8f0;border-left-width:3px;border-radius:8px;padding:0 10px;background:#fff;height:36px;min-height:36px}.scanum-card span{font-size:.66rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.scanum-card strong{font-size:.85rem;color:#0f2942;white-space:nowrap}.scanum-card.ok{border-left-color:#16a34a}.scanum-card.partial{border-left-color:#eab308}.scanum-card.warn{border-left-color:#f59e0b}.scanum-card.danger{border-left-color:#dc2626}.scanum-card.orphan{border-left-color:#2563eb}
 .scanum-toolbar{display:flex;align-items:center;gap:8px;margin:12px 0}.scanum-toolbar input,.scanum-toolbar select{height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;background:#fff;color:#0f2942;font-size:.75rem}.scanum-toolbar input{width:280px}.scanum-info{font-size:.7rem;color:#64748b;margin-left:auto}
 .scanum-table-wrap{height:calc(100vh - 385px);min-height:360px;overflow:auto;border:1px solid #dbe5ef;border-radius:12px;background:#fff}.scanum-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.72rem}.scanum-table th{position:sticky;top:0;z-index:2;background:#0f2942;color:#fff;padding:9px 7px;text-align:left;white-space:nowrap}.scanum-table td{padding:8px 7px;border-bottom:1px solid #edf2f7;vertical-align:middle}.scanum-table tbody tr:hover{background:#f8fbff}.scanum-table .num{text-align:right;white-space:nowrap}.scanum-empty{text-align:center!important;padding:50px 20px!important;color:#64748b}.scanum-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:.64rem;font-weight:700;white-space:nowrap}.scanum-badge.ok{background:#dcfce7;color:#166534}.scanum-badge.partial{background:#fef9c3;color:#854d0e}.scanum-badge.amount{background:#ffedd5;color:#9a3412}.scanum-badge.missing{background:#fee2e2;color:#991b1b}.scanum-badge.orphan{background:#dbeafe;color:#1e40af}.scanum-badge.cash{background:#f1f5f9;color:#475569}.scanum-muted{color:#94a3b8}.scanum-link{color:#2563eb;text-decoration:none;font-weight:700}.scanum-link:hover{text-decoration:underline}
-body.dark-mode #tab-scanum .scanum-head,body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table-wrap{background:#0f1c2e;border-color:#24384f}body.dark-mode #tab-scanum .scanum-head h2,body.dark-mode #tab-scanum .scanum-card strong{color:#e2e8f0}body.dark-mode #tab-scanum .scanum-head p,body.dark-mode #tab-scanum .scanum-card span,body.dark-mode #tab-scanum .scanum-info{color:#94a3b8}body.dark-mode #tab-scanum .scanum-toolbar input,body.dark-mode #tab-scanum .scanum-toolbar select{background:#0f1c2e;color:#e2e8f0;border-color:#334155}body.dark-mode #tab-scanum .scanum-table td{border-color:#24384f;color:#cbd5e1}body.dark-mode #tab-scanum .scanum-table tbody tr:hover{background:#16243a}
+body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table-wrap{background:#0f1c2e;border-color:#24384f}body.dark-mode #tab-scanum .scanum-head h2,body.dark-mode #tab-scanum .scanum-card strong{color:#e2e8f0}body.dark-mode #tab-scanum .scanum-head p,body.dark-mode #tab-scanum .scanum-card span,body.dark-mode #tab-scanum .scanum-info{color:#94a3b8}body.dark-mode #tab-scanum .scanum-toolbar input,body.dark-mode #tab-scanum .scanum-toolbar select{background:#0f1c2e;color:#e2e8f0;border-color:#334155}body.dark-mode #tab-scanum .scanum-table td{border-color:#24384f;color:#cbd5e1}body.dark-mode #tab-scanum .scanum-table tbody tr:hover{background:#16243a}
 @media(max-width:1000px){.scanum-cards{grid-template-columns:repeat(3,1fr)}.scanum-head{align-items:flex-start;flex-direction:column}.scanum-toolbar{flex-wrap:wrap}.scanum-info{margin-left:0}.scanum-table-wrap{height:calc(100vh - 500px)}}
 @media(max-width:600px){.scanum-cards{grid-template-columns:repeat(2,1fr)}.scanum-toolbar input{width:100%}.scanum-toolbar select{flex:1}}
 </style>
@@ -2799,16 +2822,17 @@ body.dark-mode #tab-scanum .scanum-head,body.dark-mode #tab-scanum .scanum-card,
         <div class="tab-panel" id="tab-scanum">
           <div class="scanum-wrap">
             <div class="scanum-head">
-              <div>
-                <h2>🔎 Scan Data Uang Masuk × Data Penjualan</h2>
-                <p>Alat kontrol saja — <b>tidak mengubah Data Penjualan, Uang Masuk, maupun AR.</b></p>
-              </div>
-              <div class="scanum-actions">
-                <button type="button" class="btn btn-primary" onclick="scanUmPenjualan()">🔄 Scan Sekarang</button>
-                <button type="button" class="btn btn-secondary" onclick="scanUmExportExcel()">📥 Export Excel</button>
+              <h2 style="margin:0;">🔎 Scan Data Uang Masuk × Data Penjualan</h2>
+              <div class="dropdown scanum-menu-wrap">
+                <button type="button" class="btn btn-secondary" onclick="toggleMenu('scanumMenuDd')">⚙️ Menu ▾</button>
+                <div class="dropdown-menu" id="scanumMenuDd" style="right:0;left:auto;min-width:250px;">
+                  <div style="padding:8px 12px;font-size:0.72rem;color:#64748b;line-height:1.4;white-space:normal;">Alat kontrol saja — <b>tidak mengubah Data Penjualan, Uang Masuk, maupun AR.</b></div>
+                  <div class="um-menu-divider"></div>
+                  <button type="button" class="um-menu-item" onclick="scanUmPenjualan(); closeAllMenus();">🔄 Scan Sekarang</button>
+                  <button type="button" class="um-menu-item" onclick="scanUmExportExcel(); closeAllMenus();">📥 Export Excel</button>
+                </div>
               </div>
             </div>
-            <div class="scanum-note">💡 Tujuan utama: memastikan pembayaran yang sudah masuk dapat ditemukan pada Data Penjualan, dan menemukan faktur Tempo yang belum terlihat pembayarannya — sehingga kelupaan membuat AR bisa terdeteksi.</div>
             <div class="scanum-cards" id="scanumCards">
               <div class="scanum-card all"><span>Total Penjualan</span><strong id="scanCAll">0</strong></div>
               <div class="scanum-card ok"><span>🟢 Cocok</span><strong id="scanCOk">0</strong></div>
