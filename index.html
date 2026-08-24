@@ -2253,6 +2253,32 @@ body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table
 @media(max-width:600px){.scanum-cards{grid-template-columns:repeat(2,1fr)}.scanum-toolbar input{width:100%}.scanum-toolbar select{flex:1}}
 </style>
 
+<style id="scanum-detail-modal-style">
+.scanum-detail-modal{max-width:900px!important;max-height:92vh;display:flex;flex-direction:column}
+#scanUmModalBody{overflow-y:auto;max-height:calc(92vh - 150px)}
+.scanum-detail-section{border:1px solid #e2e8f0;border-radius:10px;margin-bottom:12px;overflow:hidden}
+.scanum-detail-section h4{margin:0;padding:9px 12px;background:#f8fafc;color:#0f2942;font-size:.82rem}
+.scanum-detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;padding:10px 12px;font-size:.78rem}
+.scanum-detail-grid .lbl{display:block;color:#64748b;font-size:.67rem;text-transform:uppercase;margin-bottom:2px}
+.scanum-detail-table{width:100%;border-collapse:collapse;font-size:.74rem}
+.scanum-detail-table th,.scanum-detail-table td{padding:7px 8px;border-bottom:1px solid #eef2f7;white-space:nowrap}
+.scanum-detail-table th{background:#f1f5f9;color:#475569;text-transform:none;position:sticky;top:0}
+.scanum-detail-table td.num,.scanum-detail-table th.num{text-align:right}
+.scanum-detail-empty{padding:14px;color:#64748b;text-align:center;font-size:.78rem}
+.scanum-detail-status{padding:9px 12px;border-radius:8px;margin:10px 12px;font-size:.78rem}
+.scanum-detail-status.ok{background:#ecfdf5;color:#166534;border:1px solid #bbf7d0}
+.scanum-detail-status.warn{background:#fff7ed;color:#9a3412;border:1px solid #fed7aa}
+.scanum-detail-status.bad{background:#fef2f2;color:#991b1b;border:1px solid #fecaca}
+.scanum-detail-actions{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap;padding:10px 16px;border-top:1px solid #e2e8f0}
+.scanum-cancel-btn{background:linear-gradient(135deg,#ef4444,#b91c1c)!important;color:#fff!important}
+body.dark-mode .scanum-detail-section{border-color:#24384f}
+body.dark-mode .scanum-detail-section h4{background:#0f1c2e;color:#e2e8f0}
+body.dark-mode .scanum-detail-grid .lbl{color:#94a3b8}
+body.dark-mode .scanum-detail-table th{background:#17263a;color:#cbd5e1}
+body.dark-mode .scanum-detail-table td{border-bottom-color:#24384f}
+body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
+@media(max-width:700px){.scanum-detail-modal{max-width:96vw!important}.scanum-detail-grid{grid-template-columns:1fr 1fr}.scanum-detail-table{font-size:.68rem}}
+</style>
 </head>
 <body class="">
 <div id="tagihanPrintArea" style="display:none;">
@@ -3318,6 +3344,18 @@ body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table
                 </div>
             </div>
         </div>
+
+    <!-- Modal Detail Faktur: SCAN UANG MASUK × PENJUALAN -->
+    <div class="transfer-modal-overlay" id="scanUmFakturModal" onclick="if(event.target===this)scanUmCloseFakturModal()">
+      <div class="transfer-modal-box scanum-detail-modal">
+        <div class="transfer-modal-header">
+          <h3 id="scanUmModalTitle">Detail Faktur</h3>
+          <button type="button" class="transfer-modal-close" onclick="scanUmCloseFakturModal()">×</button>
+        </div>
+        <div class="transfer-modal-body" id="scanUmModalBody"></div>
+        <div class="scanum-detail-actions" id="scanUmModalActions"></div>
+      </div>
+    </div>
 
     </div><!-- /container -->
 
@@ -6786,7 +6824,9 @@ function umStatusBadge(s) {
   return '<span style="color:#94a3b8">' + umEsc(s) + '</span>';
 }
 function umSectionBadge(s) {
-  return '<span class="um-badge um-badge-section">' + (s === 'PIUTANG TEMPO' ? 'PIUTANG' : 'DROPPING') + '</span>';
+  const raw = String(s == null ? '' : s).trim();
+  const label = raw || '(kosong)';
+  return '<span class="um-badge um-badge-section">' + umEsc(label) + '</span>';
 }
 function umDateSortKey(dateStr, sheet) {
   const m = String(dateStr).match(/(\d{1,2})\/(\d{1,2})(?:\/(\d{4}))?/);
@@ -9137,227 +9177,103 @@ function scanUmRefreshMonthOptions(){
   if(keys.includes(prev2)) b.value=prev2;
 }
 
+function scanUmNorm(v){
+  return String(v==null?'':v).toUpperCase().replace(/[\u0000-\u001F]/g,' ').replace(/[^A-Z0-9]+/g,' ').replace(/\s+/g,' ').trim();
+}
+function scanUmTokens(v){ return scanUmNorm(v).split(' ').filter(Boolean); }
+function scanUmSalesMatch(a,b){
+  const A=scanUmTokens(a), B=scanUmTokens(b);
+  if(!A.length||!B.length) return false;
+  return A.some(x=>B.includes(x)); // ALIM/RAJU = dua sales; RAJU cocok dengan ALIM/RAJU
+}
+function scanUmTextSimilarity(a,b){
+  const A=scanUmNorm(a), B=scanUmNorm(b);
+  if(!A||!B) return 0;
+  if(A===B) return 1;
+  const at=new Set(A.split(' ')), bt=new Set(B.split(' '));
+  let hit=0; at.forEach(x=>{if(bt.has(x))hit++;});
+  return hit/Math.max(at.size,bt.size);
+}
+function scanUmSectionForType(isTempo){ return isTempo ? 'PIUTANG TEMPO' : 'CASH DROPPING'; }
+function scanUmIsCashPembayaran(val){
+  const pay=String(val==null?'':val).trim().toLowerCase();
+  return (pay===''||pay==='0'||pay==='cash'||pay==='tunai');
+}
+function scanUmPembayaranLabel(val){
+  return scanUmIsCashPembayaran(val) ? 'CASH' : 'TEMPO';
+}
+
 function scanUmBuild(){
-  // ================================================================
-  // MESIN REKONSILIASI SCAN UM x PENJUALAN — KONSERVATIF
-  // Prinsip:
-  // 1) Kunci utama tetap No. Faktur yang dinormalisasi.
-  // 2) Total Penjualan = SUM seluruh baris produk pada faktur.
-  // 3) Total UM = SUM seluruh pembayaran nyata (Cash + TF Minyak/Rupa).
-  // 4) Status LUNAS TIDAK pernah menciptakan pembayaran fiktif.
-  // 5) Tagihan hanya informasi pembanding, BUKAN sumber nominal pembayaran.
-  // 6) Pembayaran TITIP tetap dihitung sebagai pembayaran yang tercatat,
-  //    tetapi keterangannya diberi tanda bahwa statusnya masih TITIP.
-  // 7) Pembayaran beberapa kali pada faktur yang sama dijumlahkan.
-  // 8) Tidak ada toleransi selain selisih pembulatan Rp1.000.
-  // ================================================================
-  const pjMap = Object.create(null);
-  const umMap = Object.create(null);
-  const pjRows = (typeof allData !== 'undefined' && Array.isArray(allData)) ? allData : [];
-  const ums = (typeof umAllRows !== 'undefined' && Array.isArray(umAllRows)) ? umAllRows : [];
-  const TOL = 1000;
+  // Rekonsiliasi konservatif: No. Faktur adalah kunci pertama, tetapi BUKAN satu-satunya.
+  // Bila nomor salah ketik, sistem mencoba Customer/Toko + Alamat + Sales + Nominal/Tanggal.
+  // CASH hanya dipasangkan ke CASH DROPPING; TEMPO hanya ke PIUTANG TEMPO.
+  const pjRows=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
+  const ums=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
+  const TOL=1000, pjMap=Object.create(null), umMap=Object.create(null);
 
-  // ---------- DATA PENJUALAN ----------
-  pjRows.forEach(r => {
-    const f = scanUmFaktur(r['No.Faktur']);
-    if (!f) return;
-
-    if (!pjMap[f]) {
-      pjMap[f] = {
-        noFaktur: String(r['No.Faktur'] || '').trim(),
-        sales: r.Sales || '',
-        toko: r.Customer || '',
-        alamat: r.Alamat || '',
-        tanggal: r.Tanggal || '',
-        nominal: 0,
-        lines: 0,
-        cash: false,
-        tempo: false
-      };
-    }
-
-    const x = pjMap[f];
-    x.nominal += scanUmNum(r.Total);
-    x.lines++;
-
-    // Jangan menebak jenis pembayaran selain nilai yang memang jelas CASH.
-    const pay = String(r.Pembayaran == null ? '' : r.Pembayaran).trim().toLowerCase();
-    const isCash = (pay === '' || pay === '0' || pay === 'cash' || pay === 'tunai');
-    if (isCash) x.cash = true;
-    else x.tempo = true;
+  pjRows.forEach(r=>{
+    const f=scanUmFaktur(r['No.Faktur']); if(!f)return;
+    if(!pjMap[f]) pjMap[f]={noFaktur:String(r['No.Faktur']||'').trim(),sales:r.Sales||'',toko:r.Customer||'',alamat:r.Alamat||'',tanggal:r.Tanggal||'',nominal:0,lines:0,cash:false,tempo:false};
+    const x=pjMap[f]; x.nominal+=scanUmNum(r.Total); x.lines++;
+    const isCash=scanUmIsCashPembayaran(r.Pembayaran);
+    if(isCash)x.cash=true; else x.tempo=true;
   });
 
-  // ---------- DATA UANG MASUK ----------
-  ums.forEach(r => {
-    const f = scanUmFaktur(r.faktur);
-    if (!f) return;
-
-    if (!umMap[f]) {
-      umMap[f] = {
-        noFaktur: String(r.faktur || '').trim(),
-        sales: r.sales || '',
-        toko: r.toko || '',
-        alamat: r.alamat || '',
-        tanggalPertama: r.date || '',
-        tanggalTerakhir: r.date || '',
-        bayar: 0,
-        tagihan: 0,
-        count: 0,
-        realPaymentRows: 0,
-        titipRows: 0,
-        lunasRows: 0,
-        hasTitip: false,
-        hasNonZeroPayment: false,
-        statuses: [],
-        sections: Object.create(null),
-        dropSales: []
-      };
-    }
-
-    const x = umMap[f];
-    const bayar =
-      scanUmNum(r.minyakCash) +
-      scanUmNum(r.rupaCash) +
-      scanUmNum(r.minyakTf) +
-      scanUmNum(r.rupaTf);
-
-    x.bayar += bayar;
-    x.count++;
-    if (bayar > 0) {
-      x.realPaymentRows++;
-      x.hasNonZeroPayment = true;
-    }
-
-    // Tagihan hanya informasi. Ambil nilai terbesar karena satu faktur
-    // dapat muncul beberapa kali di histori UM.
-    x.tagihan = Math.max(x.tagihan, scanUmNum(r.tagihan));
-
-    if (r.date) {
-      if (!x.tanggalPertama) x.tanggalPertama = r.date;
-      x.tanggalTerakhir = r.date;
-    }
-
-    const st = String(r.status || '').trim().toUpperCase();
-    if (st === 'TITIP') {
-      x.titipRows++;
-      x.hasTitip = true;
-    }
-    if (st === 'LUNAS') x.lunasRows++;
-    if (st) x.statuses.push(st);
-    const sec = String(r.section || '').trim().toUpperCase();
-    if (sec) x.sections[sec] = (x.sections[sec] || 0) + 1;
-    if (sec === 'CASH DROPPING') {
-      const ds = String(r.sales || '').trim();
-      if (ds && ds !== '—' && !x.dropSales.includes(ds)) x.dropSales.push(ds);
-    }
+  ums.forEach((r,idx)=>{
+    const f=scanUmFaktur(r.faktur); if(!f)return;
+    if(!umMap[f]) umMap[f]={noFaktur:String(r.faktur||'').trim(),sales:r.sales||'',toko:r.toko||'',alamat:r.alamat||'',tanggalPertama:r.date||'',tanggalTerakhir:r.date||'',bayar:0,tagihan:0,count:0,realPaymentRows:0,titipRows:0,lunasRows:0,hasTitip:false,sections:Object.create(null),dropSales:[],rows:[],idxs:[]};
+    const x=umMap[f]; x.rows.push(r); x.idxs.push(idx);
+    const bayar=scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf);
+    x.bayar+=bayar; x.count++; if(bayar>0)x.realPaymentRows++;
+    x.tagihan=Math.max(x.tagihan,scanUmNum(r.tagihan));
+    if(r.date){if(!x.tanggalPertama)x.tanggalPertama=r.date;x.tanggalTerakhir=r.date;}
+    const st=String(r.status||'').trim().toUpperCase(); if(st==='TITIP'){x.titipRows++;x.hasTitip=true;} if(st==='LUNAS')x.lunasRows++;
+    const sec=String(r.section||'').trim().toUpperCase(); if(sec)x.sections[sec]=(x.sections[sec]||0)+1;
+    if(sec==='CASH DROPPING'){const ds=String(r.sales||'').trim();if(ds&&!x.dropSales.includes(ds))x.dropSales.push(ds);}
   });
 
-  const rows = [];
-  const seen = new Set();
+  const usedUm=new Set(), rows=[], seen=new Set();
+  const groupScore=(p,u,isTempo)=>{
+    const wanted=scanUmSectionForType(isTempo);
+    if(!u||!u.sections[wanted])return -1;
+    let score=0;
+    const toko=scanUmTextSimilarity(p.toko,u.toko);
+    const alamat=scanUmTextSimilarity(p.alamat,u.alamat);
+    const sales=scanUmSalesMatch(p.sales,u.sales)?1:0;
+    const date=scanUmTextSimilarity(p.tanggal,u.tanggalPertama);
+    if(toko===1)score+=40; else if(toko>=0.5)score+=25;
+    if(alamat===1)score+=25; else if(alamat>=0.5)score+=12;
+    if(sales)score+=20;
+    const diff=Math.abs(Math.abs(u.bayar)-Math.abs(p.nominal));
+    if(diff<=TOL)score+=15; else if(p.nominal>0&&Math.abs(diff/p.nominal)<=0.05)score+=7;
+    if(date===1)score+=5;
+    return score;
+  };
 
-  // ---------- REKONSILIASI PENJUALAN -> UANG MASUK ----------
-  Object.keys(pjMap).forEach(f => {
-    const p = pjMap[f];
-    const u = umMap[f];
-    seen.add(f);
-
-    const pj = Math.abs(scanUmNum(p.nominal));
-    const um = u ? Math.abs(scanUmNum(u.bayar)) : 0;
-    const selisih = um - pj;
-
-    let status = 'missing';
-    let ket = 'Belum ditemukan pembayaran di Data Uang Masuk';
-
-    if (u) {
-      if (um <= TOL) {
-        // Tidak boleh memakai status LUNAS untuk menciptakan pembayaran.
-        status = 'missing';
-        ket = u.lunasRows > 0
-          ? 'Ada baris Uang Masuk berstatus LUNAS, tetapi nominal pembayaran tercatat Rp 0 — tidak dianggap sebagai pembayaran.'
-          : 'No. Faktur ditemukan di Uang Masuk, tetapi belum ada nominal pembayaran yang tercatat.';
-      } else if (Math.abs(selisih) <= TOL) {
-        status = 'ok';
-        if (u.hasTitip) {
-          ket = 'Nominal pembayaran sesuai penjualan, tetapi terdapat pembayaran berstatus TITIP.';
-        } else {
-          ket = 'Total seluruh pembayaran sesuai dengan nominal penjualan.';
-        }
-      } else if (um < pj - TOL) {
-        status = 'partial';
-        ket = 'Pembayaran baru sebagian. Sisa ' + scanUmMoney(Math.max(0, pj - um)) + '.';
-        if (u.hasTitip) ket += ' Terdapat pembayaran berstatus TITIP.';
-      } else {
-        status = 'amount';
-        ket = 'Total pembayaran lebih besar dari nominal penjualan sebesar ' + scanUmMoney(Math.abs(selisih)) + '.';
-        if (u.hasTitip) ket += ' Terdapat pembayaran berstatus TITIP.';
-      }
+  Object.keys(pjMap).forEach(f=>{
+    const p=pjMap[f]; seen.add(f); const pj=Math.abs(scanUmNum(p.nominal)); const isTempo=p.tempo&&!p.cash; let u=umMap[f]; let mode=u?'NO FAKTUR':'TIDAK DITEMUKAN';
+    // Exact invoice is accepted only when its section is correct for CASH/TEMPO.
+    if(u && !u.sections[scanUmSectionForType(isTempo)]) u=null;
+    // If invoice is missing/wrong, find the strongest identity match in the correct section.
+    if(!u){let best=null,bestScore=0;Object.keys(umMap).forEach(k=>{const cand=umMap[k];if(usedUm.has(k))return;const sc=groupScore(p,cand,isTempo);if(sc>bestScore){bestScore=sc;best=cand;}});if(best&&bestScore>=60){u=best;mode='IDENTITAS (FAKTUR MUNGKIN SALAH KETIK)';}}
+    if(u){const uf=scanUmFaktur(u.noFaktur);usedUm.add(uf);}
+    const um=u?Math.abs(scanUmNum(u.bayar)):0, selisih=um-pj;
+    let status='missing',ket='Belum ditemukan pembayaran di '+(isTempo?'PIUTANG TEMPO':'CASH DROPPING');
+    if(u){
+      if(um<=TOL){status='missing';ket='Data ditemukan, tetapi belum ada nominal pembayaran yang tercatat di '+scanUmSectionForType(isTempo)+'.';}
+      else if(Math.abs(selisih)<=TOL){status='ok';ket='Nominal pembayaran sesuai. '+(mode!=='NO FAKTUR'?'Identitas cocok; periksa No. Faktur yang kemungkinan salah ketik.':'No. Faktur dan identitas transaksi cocok.');}
+      else if(um<pj-TOL){status='partial';ket='Pembayaran sebagian. Sisa '+scanUmMoney(Math.max(0,pj-um))+'.';}
+      else {status='amount';ket='Total pembayaran lebih besar dari penjualan sebesar '+scanUmMoney(Math.abs(selisih))+'.';}
+      if(u.hasTitip)ket+=' Terdapat pembayaran berstatus TITIP.';
     }
-
-    const isCashDropping = !!(u && u.sections && u.sections['CASH DROPPING']);
-    const dropSales = u && u.dropSales ? u.dropSales.join(', ') : '';
-    if (isCashDropping) {
-      const label = dropSales ? 'CASH DROPPING · '+dropSales : 'CASH DROPPING';
-      ket = ket ? ket + ' | ' + label : label;
-    }
-
-    rows.push({
-      kind: 'pj',
-      status,
-      noFaktur: p.noFaktur,
-      tanggal: p.tanggal,
-      sales: p.sales,
-      toko: p.toko,
-      jenis: p.tempo ? 'TEMPO' : 'CASH',
-      pj,
-      um,
-      selisih,
-      ket,
-      lines: p.lines,
-      tempo: p.tempo,
-      umCount: u ? u.count : 0,
-      umPaymentRows: u ? u.realPaymentRows : 0,
-      umTitipRows: u ? u.titipRows : 0,
-      matchMode: u ? 'NO FAKTUR' : 'TIDAK DITEMUKAN',
-      umSection: isCashDropping ? 'CASH DROPPING' : (u && Object.keys(u.sections||{}).find(k=>k==='PIUTANG TEMPO') || ''),
-      dropSales,
-      umDateFirst: u ? u.tanggalPertama : '',
-      umDateLast: u ? u.tanggalTerakhir : ''
-    });
+    const section=u?scanUmSectionForType(isTempo):'';
+    rows.push({kind:'pj',status,noFaktur:p.noFaktur,tanggal:p.tanggal,sales:p.sales,toko:p.toko,alamat:p.alamat,jenis:isTempo?'TEMPO':'CASH',pj,um,selisih,ket,lines:p.lines,tempo:isTempo,umCount:u?u.count:0,umPaymentRows:u?u.realPaymentRows:0,umTitipRows:u?u.titipRows:0,matchMode:mode,umSection:section,dropSales:u&&u.dropSales?u.dropSales.join(', '):'',umDateFirst:u?u.tanggalPertama:'',umDateLast:u?u.tanggalTerakhir:'',matchedFaktur:u?u.noFaktur:''});
   });
 
-  // ---------- UANG MASUK TANPA PASANGAN PENJUALAN ----------
-  Object.keys(umMap).forEach(f => {
-    if (seen.has(f)) return;
-    const u = umMap[f];
-    const um = Math.abs(scanUmNum(u.bayar));
-
-    rows.push({
-      kind: 'um',
-      status: 'orphan',
-      noFaktur: u.noFaktur,
-      tanggal: u.tanggalPertama || '—',
-      sales: u.sales,
-      toko: u.toko,
-      jenis: 'UM SAJA',
-      pj: 0,
-      um,
-      selisih: um,
-      ket: um > TOL
-        ? 'Ada pembayaran di Uang Masuk tetapi No. Faktur tidak ditemukan di Data Penjualan. Periksa kemungkinan salah input No. Faktur.'
-        : 'Ada baris Uang Masuk tetapi belum ada nominal pembayaran yang tercatat dan No. Faktur tidak ditemukan di Data Penjualan.',
-      lines: 0,
-      tempo: false,
-      umCount: u.count,
-      umPaymentRows: u.realPaymentRows,
-      umTitipRows: u.titipRows,
-      matchMode: 'TIDAK ADA DI PENJUALAN',
-      umSection: u.sections && u.sections['CASH DROPPING'] ? 'CASH DROPPING' : 'PIUTANG TEMPO',
-      dropSales: u.dropSales ? u.dropSales.join(', ') : '',
-      umDateFirst: u.tanggalPertama,
-      umDateLast: u.tanggalTerakhir
-    });
+  Object.keys(umMap).forEach(f=>{
+    if(usedUm.has(f))return; const u=umMap[f], um=Math.abs(scanUmNum(u.bayar));
+    rows.push({kind:'um',status:'orphan',noFaktur:u.noFaktur,tanggal:u.tanggalPertama||'—',sales:u.sales,toko:u.toko,alamat:u.alamat,jenis:'UM SAJA',pj:0,um,selisih:um,ket:um> TOL?'Ada pembayaran di Uang Masuk yang belum memiliki pasangan Penjualan. Periksa kemungkinan salah input No. Faktur atau identitas.':'Ada baris Uang Masuk tanpa nominal pembayaran.',lines:0,tempo:false,umCount:u.count,umPaymentRows:u.realPaymentRows,umTitipRows:u.titipRows,matchMode:'TIDAK ADA PASANGAN',umSection:u.sections['CASH DROPPING']?'CASH DROPPING':'PIUTANG TEMPO',dropSales:u.dropSales.join(', '),umDateFirst:u.tanggalPertama,umDateLast:u.tanggalTerakhir,matchedFaktur:''});
   });
-
   return rows;
 }
 function scanUmPenjualan(){
@@ -9398,11 +9314,181 @@ function scanUmRender(){
   tb.innerHTML=html;
 }
 function scanUmOpenFaktur(no){
-  if(typeof openTransferModal==='function' && typeof allData!=='undefined' && allData.some(r=>scanUmFaktur(r['No.Faktur'])===scanUmFaktur(no))){
-    openTransferModal(no); return;
+  const fKey=scanUmFaktur(no);
+  const allPj=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
+  const allUm=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
+  const pjRows=allPj.filter(r=>scanUmFaktur(r['No.Faktur'])===fKey);
+  let umRows=allUm.filter(r=>scanUmFaktur(r.faktur)===fKey);
+  // Bila No. Faktur salah ketik, cari berdasarkan identitas transaksi + bagian yang benar.
+  if(pjRows.length && !umRows.length){
+    const first=pjRows[0], pjNom=pjRows.reduce((a,r)=>a+scanUmNum(r.Total),0);
+    const isCash=scanUmIsCashPembayaran(first.Pembayaran);
+    const wanted=scanUmSectionForType(!isCash);
+    const groups=Object.create(null);
+    allUm.forEach(r=>{const k=scanUmFaktur(r.faktur);if(!k)return;(groups[k]||(groups[k]=[])).push(r);});
+    let best=null,bestScore=0;
+    Object.keys(groups).forEach(k=>{const rs=groups[k];if(!rs.some(r=>String(r.section||'').trim().toUpperCase()===wanted))return;const u=rs[0];let sc=0;const toko=scanUmTextSimilarity(first.Customer,u.toko),alamat=scanUmTextSimilarity(first.Alamat,u.alamat),sales=scanUmSalesMatch(first.Sales,u.sales),um=rs.reduce((a,r)=>a+scanUmDetailPayment(r),0);if(toko===1)sc+=40;else if(toko>=.5)sc+=25;if(alamat===1)sc+=25;else if(alamat>=.5)sc+=12;if(sales)sc+=20;if(Math.abs(um-pjNom)<=1000)sc+=15;if(sc>bestScore){bestScore=sc;best=rs;}});
+    if(best&&bestScore>=60)umRows=best;
   }
-  alert('No. Faktur '+no+' tidak ditemukan di Data Penjualan.');
+  const arRows=(typeof state!=='undefined'?['A','B'].flatMap(k=>state[k]&&Array.isArray(state[k].rows)?state[k].rows.filter(r=>scanUmFaktur(r.noFaktur)===fKey).map(r=>({...r,_slot:k,_label:state[k].label})):[]):[]);
+  if(!pjRows.length&&!umRows.length&&!arRows.length){alert('No. Faktur '+no+' tidak ditemukan pada Data Penjualan maupun Data Uang Masuk.');return;}
+  scanUmShowFakturModal(String(no),pjRows,umRows,arRows);
 }
+
+function scanUmEsc(v){
+  return String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function scanUmDetailMoney(v){
+  const n=Number(v)||0;
+  return 'Rp '+Math.round(n).toLocaleString('id-ID');
+}
+function scanUmDetailPayment(r){
+  return scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf);
+}
+function scanUmShowFakturModal(no,pjRows,umRows,arRows){
+  const modal=document.getElementById('scanUmFakturModal');
+  const body=document.getElementById('scanUmModalBody');
+  const actions=document.getElementById('scanUmModalActions');
+  if(!modal||!body||!actions) return;
+
+  const pjNominal=pjRows.reduce((a,r)=>a+(Number(r.Total)||0),0);
+  const umNominal=umRows.reduce((a,r)=>a+scanUmDetailPayment(r),0);
+  const selisih=umNominal-pjNominal;
+  const first=pjRows[0]||{};
+  const umFirst=umRows[0]||{};
+  const toko=first.Customer||umFirst.toko||'—';
+  const sales=first.Sales||umFirst.sales||'—';
+  const tanggal=first.Tanggal||'—';
+
+  let statusClass='ok', statusText='Nominal Uang Masuk sesuai dengan Penjualan.';
+  if(!pjRows.length){statusClass='bad';statusText='No. Faktur tidak ditemukan di Data Penjualan.';}
+  else if(!umRows.length || umNominal===0){statusClass='bad';statusText='Belum ada nominal pembayaran pada bagian Uang Masuk yang semestinya.';}
+  else if(Math.abs(selisih)>1000){statusClass='warn';statusText='Nominal berbeda. Selisih '+(selisih>0?'+':'')+scanUmDetailMoney(selisih)+'.';}
+  else if(umRows.some(r=>String(r.status||'').toUpperCase()==='TITIP')){statusClass='warn';statusText='Nominal sesuai, tetapi terdapat baris berstatus TITIP.';}
+
+  let html='<div class="scanum-detail-status '+statusClass+'"><b>Hasil scan:</b> '+scanUmEsc(statusText)+'</div>';
+
+  html+='<div class="scanum-detail-section"><h4>🧾 Data Penjualan</h4>';
+  html+='<div class="scanum-detail-grid">';
+  html+='<div><span class="lbl">No. Faktur</span><strong>'+scanUmEsc(no)+'</strong></div>';
+  html+='<div><span class="lbl">Tanggal</span><strong>'+scanUmEsc(tanggal)+'</strong></div>';
+  html+='<div><span class="lbl">Sales</span><strong>'+scanUmEsc(sales)+'</strong></div>';
+  html+='<div><span class="lbl">Toko / Customer</span><strong>'+scanUmEsc(toko)+'</strong></div>';
+  html+='<div><span class="lbl">Alamat</span><strong>'+scanUmEsc(first.Alamat||umFirst.alamat||'—')+'</strong></div>';
+  html+='<div><span class="lbl">Jenis Pembayaran</span><strong>'+scanUmEsc(scanUmPembayaranLabel(first.Pembayaran))+'</strong></div>';
+  html+='<div><span class="lbl">Lokasi UM yang benar</span><strong>'+scanUmEsc(scanUmSectionForType(!scanUmIsCashPembayaran(first.Pembayaran)))+'</strong></div>';
+  html+='<div><span class="lbl">Total Penjualan</span><strong>'+scanUmDetailMoney(pjNominal)+'</strong></div>';
+  html+='<div><span class="lbl">Jumlah Baris Produk</span><strong>'+pjRows.length+'</strong></div>';
+  html+='</div>';
+  if(pjRows.length){
+    html+='<div style="overflow:auto;max-height:260px"><table class="scanum-detail-table"><thead><tr><th>No</th><th>Produk</th><th>Qty</th><th class="num">Total</th></tr></thead><tbody>';
+    pjRows.forEach((r,i)=>{
+      html+='<tr><td>'+(i+1)+'</td><td>'+scanUmEsc(r.Produk||'—')+'</td><td>'+scanUmEsc(r.Jumlah||r.Qty||'—')+'</td><td class="num">'+scanUmDetailMoney(r.Total)+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  } else html+='<div class="scanum-detail-empty">Tidak ada data Penjualan.</div>';
+  html+='</div>';
+
+  html+='<div class="scanum-detail-section"><h4>💰 Data Uang Masuk</h4>';
+  html+='<div class="scanum-detail-grid">';
+  html+='<div><span class="lbl">Total Uang Masuk</span><strong>'+scanUmDetailMoney(umNominal)+'</strong></div>';
+  html+='<div><span class="lbl">Bagian UM</span><strong>'+scanUmEsc(umFirst.section||'—')+'</strong></div>';
+  html+='<div><span class="lbl">Customer UM</span><strong>'+scanUmEsc(umFirst.toko||'—')+'</strong></div>';
+  html+='<div><span class="lbl">Alamat UM</span><strong>'+scanUmEsc(umFirst.alamat||'—')+'</strong></div>';
+  html+='<div><span class="lbl">Selisih</span><strong>'+scanUmDetailMoney(selisih)+'</strong></div>';
+  html+='<div><span class="lbl">Jumlah Riwayat</span><strong>'+umRows.length+'</strong></div>';
+  html+='<div><span class="lbl">AR Terkait</span><strong>'+arRows.length+' baris</strong></div>';
+  html+='</div>';
+  if(umRows.length){
+    html+='<div style="overflow:auto;max-height:280px"><table class="scanum-detail-table"><thead><tr><th>Tgl Masuk</th><th>Bagian</th><th>Sales</th><th class="num">Tagihan</th><th class="num">Bayar</th><th>Status</th></tr></thead><tbody>';
+    umRows.forEach(r=>{
+      const bayar=scanUmDetailPayment(r);
+      html+='<tr><td>'+scanUmEsc(r.date||'—')+'</td><td>'+scanUmEsc(r.section||'—')+'</td><td>'+scanUmEsc(r.sales||'—')+'</td><td class="num">'+scanUmDetailMoney(r.tagihan)+'</td><td class="num">'+scanUmDetailMoney(bayar)+'</td><td>'+scanUmEsc(r.status||'—')+'</td></tr>';
+    });
+    html+='</tbody></table></div>';
+  } else html+='<div class="scanum-detail-empty">Tidak ada data Uang Masuk.</div>';
+  html+='</div>';
+
+  html+='<div style="font-size:.72rem;color:#64748b;padding:2px 2px 8px">Jika faktur memang <b>Batal transaksi</b>, gunakan tombol merah. Data akan dipindahkan ke Tempat Sampah agar dapat dipulihkan.</div>';
+  body.innerHTML=html;
+  actions.innerHTML='<button type="button" class="btn btn-secondary" onclick="scanUmCloseFakturModal()">Tutup</button>'+
+    '<button type="button" class="btn scanum-cancel-btn" onclick="scanUmCancelTransaction(\''+scanUmEsc(no)+'\')">🗑️ Batal Transaksi</button>';
+  modal.classList.add('show');
+}
+function scanUmCloseFakturModal(){
+  const m=document.getElementById('scanUmFakturModal');
+  if(m) m.classList.remove('show');
+}
+function scanUmCancelTransaction(no){
+  const fKey=scanUmFaktur(no);
+  if(!confirm('Yakin No. Faktur '+no+' adalah BATAL TRANSAKSI?\\n\\nData Penjualan, Uang Masuk, dan AR terkait akan dipindahkan ke Tempat Sampah dan dapat dipulihkan.')) return;
+
+  const item={
+    id:'t_'+Date.now()+'_'+Math.random().toString(36).slice(2,7),
+    noFaktur:String(no),
+    reason:'BATAL TRANSAKSI — diproses dari Scan Uang Masuk × Penjualan',
+    movedAt:new Date().toISOString(),
+    penjualan:[], ar:[], um:[]
+  };
+
+  if(typeof allData!=='undefined'){
+    const pj=allData.filter(r=>scanUmFaktur(r['No.Faktur'])===fKey);
+    item.penjualan=pj.map(r=>({...r}));
+    if(pj.length) allData=allData.filter(r=>scanUmFaktur(r['No.Faktur'])!==fKey);
+  }
+
+  if(typeof state!=='undefined'){
+    ['A','B'].forEach(k=>{
+      if(!state[k]||!Array.isArray(state[k].rows)) return;
+      const keep=[];
+      state[k].rows.forEach(r=>{
+        if(scanUmFaktur(r.noFaktur)===fKey) item.ar.push({...r,_slot:k,_label:state[k].label});
+        else keep.push(r);
+      });
+      state[k].rows=keep;
+    });
+  }
+
+  if(typeof umAllRows!=='undefined' && Array.isArray(umAllRows)){
+    const um=umAllRows.filter(r=>scanUmFaktur(r.faktur)===fKey);
+    item.um=um.map(r=>({...r}));
+    if(um.length) umAllRows=umAllRows.filter(r=>scanUmFaktur(r.faktur)!==fKey);
+  }
+
+  if(!item.penjualan.length&&!item.um.length&&!item.ar.length){
+    alert('Tidak ada data terkait No. Faktur '+no+' yang bisa dipindahkan.');
+    return;
+  }
+
+  if(typeof trashLoad==='function') trashLoad();
+  if(typeof trashItems!=='undefined' && Array.isArray(trashItems)){
+    trashItems.unshift(item);
+    if(typeof trashSave==='function') trashSave();
+  }
+
+  try{
+    if(typeof rebuildAnomaliIndex==='function') rebuildAnomaliIndex();
+    if(typeof populateFilters==='function') populateFilters();
+    if(typeof applyFilters==='function') applyFilters();
+    if(typeof updateHeaderSubtitle==='function') updateHeaderSubtitle();
+    if(typeof updateUploadStatus==='function') updateUploadStatus();
+    if(typeof rebuildSumberFilter==='function') rebuildSumberFilter();
+    if(typeof rebuildSalesFilter==='function') rebuildSalesFilter();
+    if(typeof saveStateToStorage==='function') saveStateToStorage();
+    if(typeof render==='function') render();
+    if(typeof umSaveToStorage==='function') umSaveToStorage();
+    if(typeof umShowSummary==='function') umShowSummary();
+  }catch(e){console.error('scanUmCancelTransaction refresh',e);}
+
+  scanUmCloseFakturModal();
+  scanUmPenjualan();
+  const parts=[];
+  if(item.penjualan.length) parts.push(item.penjualan.length+' baris Penjualan');
+  if(item.um.length) parts.push(item.um.length+' baris Uang Masuk');
+  if(item.ar.length) parts.push(item.ar.length+' baris AR');
+  alert('Faktur '+no+' ditandai BATAL TRANSAKSI dan dipindahkan ke Tempat Sampah.\\n\\n'+parts.join(', ')+'\\n\\nData dapat dipulihkan dari menu 🗑️ Sampah.');
+}
+
 function scanUmExportExcel(){
   if(!scanUmDone) scanUmPenjualan();
   if(typeof XLSX==='undefined'){alert('Library Excel belum termuat.');return;}
@@ -9412,6 +9498,7 @@ function scanUmExportExcel(){
 </script>
 
 
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 </body>
 </html>
