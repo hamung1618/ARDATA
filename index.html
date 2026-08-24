@@ -6993,6 +6993,7 @@ function anoGetPjMap() {
 
 function anoGetArMap() {
   const map = {};
+  const seen = new Set();
   if (typeof state === 'undefined') return map;
   ['A','B'].forEach(k => {
     if (!state[k] || !state[k].rows) return;
@@ -7001,6 +7002,15 @@ function anoGetArMap() {
       if (anoIsExcludedRowDate(r.tglFaktur)) return;
       const f = anoNormFaktur(r.noFaktur);
       if (!f) return;
+      // A dan B dapat berisi snapshot/upload yang sama. Jangan menjumlahkan
+      // record identik dua kali; pembayaran/nominal yang memang berbeda tetap
+      // diproses sebagai record terpisah.
+      const dupKey = [
+        f, String(r.tglFaktur || ''), Math.round(Number(r.nominal) || 0),
+        Math.round(Number(r.totalPayment) || 0), String(r.kategori || '')
+      ].join('|');
+      if (seen.has(dupKey)) return;
+      seen.add(dupKey);
       if (!map[f]) {
         map[f] = {
           noFaktur: String(r.noFaktur).trim(),
@@ -7187,28 +7197,44 @@ function fixBadge(cat) {
 }
 
 function fixClassify(p, a, u) {
-  // returns primary category + ket
+  // DATA FIX hanya menyebut "Lengkap" bila 3 sumber benar-benar selaras.
   const hasP = !!p;
   const hasA = !!a;
   const hasU = !!(u && (u.count > 0 || (u.totalBayar || 0) > 0 || u.hasLunas || u.hasCashDropping || u.hasPiutangTempo));
   const isLunas = hasA && a.kategori === 'lunas';
   const isTempo = hasP && p.isTempo;
   const isCash = hasP && p.isCash && !p.isTempo;
+  const TOL = 1000;
 
-  if (hasP && hasA && hasU) {
-    return { cat: 'lengkap', ket: (isTempo ? 'Tempo' : (isCash ? 'Cash' : 'PJ')) + ' + AR + UM selaras (bukan anomali)' };
+  const pjNom = hasP ? Math.abs(Number(p.nominal) || 0) : 0;
+  const arNom = hasA ? Math.abs(Number(a.nominal) || 0) : 0;
+  const umTag = hasU ? Math.abs(Number(u.tagihan) || 0) : 0;
+  const umPay = hasU ? Math.abs(Number(u.totalBayar) || 0) : 0;
+
+  const pjArNominalOK = !hasP || !hasA || Math.abs(pjNom - arNom) <= TOL;
+  const arUmTagihanOK = !hasA || !hasU || !umTag || Math.abs(arNom - umTag) <= TOL;
+  const refNom = arNom || pjNom || umTag;
+  const umSettled = hasU && (anoUmSettled(u) || (refNom > 0 && umPay >= refNom - TOL));
+  const paymentConsistent = !hasU || !refNom || !umPay || umSettled || (hasA && a.kategori !== 'lunas');
+
+  if (hasP && hasA && hasU && pjArNominalOK && arUmTagihanOK && paymentConsistent) {
+    if (isLunas || umSettled) {
+      return { cat: 'lengkap', ket: (isTempo ? 'Tempo' : (isCash ? 'Cash' : 'PJ')) + ' + AR + UM selaras · nominal cocok' };
+    }
+    // Tiga sumber ada, tetapi belum lunas: tetap masuk Tempo/Cash, bukan Lengkap.
+    if (isTempo) return { cat: 'tempo', ket: 'Tempo di Penjualan + AR + UM · pembayaran belum menutup tagihan' };
+    if (isCash) return { cat: 'cash', ket: 'Cash di Penjualan + AR + UM · nominal cocok' };
   }
+
   if (isLunas) {
     return { cat: 'lunas', ket: 'AR sudah LUNAS' + (hasP ? ' · ada di Penjualan' : '') + (hasU ? ' · ada di UM' : '') };
   }
   if (isTempo && hasA) {
     return { cat: 'tempo', ket: 'Tempo di Penjualan + sudah ada di AR' + (hasU ? ' · ada jejak UM' : '') };
   }
-  // Cash OK = CASH di Penjualan DAN sudah ada jejak di Uang Masuk
   if (isCash && hasU) {
     return { cat: 'cash', ket: 'Cash di Penjualan + ada di Uang Masuk' + (hasA ? ' · ada AR' : '') };
   }
-  // fallback healthy residual
   let bits = [];
   if (hasP) bits.push('PJ');
   if (hasA) bits.push('AR');
@@ -7782,6 +7808,19 @@ function anoRebuild(force) {
       }
       if (a.kategori === 'titip' && u.status === 'LUNAS') {
         issues.push('UM Lunas tapi AR masih Titip');
+      }
+      // TF/TRANSFER berarti sudah ada bukti transfer di UM. Jika AR masih
+      // terbuka, pastikan nominal TF memang menutup tagihan; jika tidak,
+      // tandai sebagai partial agar tidak lolos ke Data Fix sebagai Lengkap.
+      const umIsTf = !!(u.hasTf || u.status === 'TF' || u.status === 'TRANSFER');
+      const tfRef = Math.abs(Number(a.nominal) || Number(u.tagihan) || 0);
+      if (umIsTf && (a.kategori === 'belum' || a.kategori === 'titip') && tfRef > 0) {
+        const tfPay = Number(u.totalBayar) || 0;
+        if (tfPay < tfRef - 1000) {
+          issues.push('UM TF belum menutup tagihan (bayar ' + Math.round(tfPay).toLocaleString('id-ID') + ' / tagihan ' + Math.round(tfRef).toLocaleString('id-ID') + ')');
+        } else {
+          issues.push('UM TF sudah menutup tagihan tetapi AR masih ' + a.statusLabel);
+        }
       }
       const arPay = a.totalPayment || 0;
       const umPay = u.totalBayar || 0;
