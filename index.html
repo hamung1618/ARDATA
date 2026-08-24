@@ -2064,7 +2064,6 @@ body.dark-mode .ano-card-v { color: #e2e8f0; }
 .ano-card[data-k="3"] .ano-card-v { color: #d97706; }
 .ano-card[data-k="4"] .ano-card-v { color: #7c3aed; }
 .ano-card[data-k="5"] .ano-card-v { color: #2563eb; }
-.ano-card[data-k="6"] .ano-card-v { color: #0d9488; }
 .ano-j6 { background: #ccfbf1; color: #0f766e; }
 body.dark-mode .ano-j6 { background: rgba(13,148,136,0.15); color: #5eead4; }
 .ano-jenis {
@@ -6829,7 +6828,7 @@ function anoSetCat(cat) {
   anoRender();
 }
 
-document.querySelectorAll('.ano-card').forEach(card => {
+document.querySelectorAll('#anoSummary .ano-card').forEach(card => {
   card.addEventListener('click', () => anoSetCat(card.dataset.k));
 });
 
