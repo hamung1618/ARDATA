@@ -2109,6 +2109,24 @@ body.dark-mode .fix-b-lengkap { background: rgba(139,92,246,0.15); color: #c4b5f
   height: auto; padding: 0; border: none; background: transparent !important;
 }
 
+/* Tabel Anomali juga di-render virtual (hanya baris yang terlihat) dengan
+   asumsi tinggi baris seragam (ANO_ROW_H = 36px di JS) — aturan di bawah ini
+   WAJIB ada supaya isi sel panjang (mis. Toko / Keterangan) tidak membuat
+   baris jadi lebih tinggi dari 36px, karena kalau itu terjadi, perhitungan
+   scroll virtualisasi (topPad/botPad) jadi tidak sinkron dengan tinggi
+   sungguhan → baris bisa terasa "meloncat"/salah posisi saat discroll. */
+#anoTable { table-layout: fixed; }
+#anoTbody td {
+  height: 36px; max-height: 36px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+  padding: 6px 8px; font-size: 0.78rem;
+  border-bottom: 1px solid #f0f0f0;
+  box-sizing: border-box;
+}
+#anoTbody tr.fix-pad td {
+  height: auto; padding: 0; border: none; background: transparent !important;
+}
+
 #tab-anomali thead th:nth-child(6),
 #tab-anomali thead th:nth-child(9) { white-space: nowrap; }
 
@@ -2941,7 +2959,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 
             <div class="table-wrapper">
               <div class="table-container" id="anoScroll" style="max-height:560px;" onscroll="anoOnScroll()">
-                <table>
+                <table id="anoTable">
                   <thead>
                     <tr>
                       <th>#</th>
@@ -6831,6 +6849,21 @@ function anoSetCat(cat) {
 document.querySelectorAll('#anoSummary .ano-card').forEach(card => {
   card.addEventListener('click', () => anoSetCat(card.dataset.k));
 });
+
+// Default filter "Bulan" ke bulan berjalan saat halaman pertama kali dibuka,
+// supaya tab Anomali & Data Fix langsung menampilkan bulan terkini (bukan
+// "Semua bulan") tanpa user harus pilih manual dulu. Hanya di-set sekali di
+// awal — kalau user ganti sendiri (termasuk balik ke "Semua bulan"), pilihan
+// itu tidak akan ditimpa lagi selama halaman belum di-reload.
+(function anoFixDefaultBulanTerkini() {
+  try {
+    const mm = String(new Date().getMonth() + 1).padStart(2, '0');
+    const elAno = document.getElementById('anoFilterBulan');
+    const elFix = document.getElementById('fixFilterBulan');
+    if (elAno && [...elAno.options].some(o => o.value === mm)) elAno.value = mm;
+    if (elFix && [...elFix.options].some(o => o.value === mm)) elFix.value = mm;
+  } catch (_) {}
+})();
 
 function anoNormFaktur(v) {
   return String(v == null ? '' : v).trim().replace(/^0+/, '') || String(v == null ? '' : v).trim();
