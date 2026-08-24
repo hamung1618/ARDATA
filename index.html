@@ -7189,7 +7189,7 @@ function anoDataFingerprint() {
 let fixActiveCat = 'semua';
 let fixAllRows = [];      // full list
 let fixFilteredRows = []; // after cat + search
-let fixCounts = { tempo: 0, cash: 0, lunas: 0, lengkap: 0 };
+let fixCounts = { 'tempo-belum': 0, 'tempo-sudah': 0, cash: 0, lunas: 0, lengkap: 0 };
 const FIX_ROW_H = 36;
 const FIX_OVERSCAN = 8;
 let fixScrollRaf = 0;
@@ -7320,7 +7320,7 @@ function fixRebuildFromAno() {
 
     const allKeys = new Set([...Object.keys(pj), ...Object.keys(ar), ...Object.keys(um)]);
     const rows = [];
-    const counts = { tempo: 0, cash: 0, lunas: 0, lengkap: 0 };
+    const counts = { 'tempo-belum': 0, 'tempo-sudah': 0, cash: 0, lunas: 0, lengkap: 0 };
 
     allKeys.forEach(function(f) {
       if (bad.has(f)) return;
@@ -7424,13 +7424,14 @@ function fixApplyFilter() {
   }
 
   // Update angka di 4 kartu ringkasan supaya ikut filter bulan/sumber/pencarian aktif
-  const cardCounts = { tempo: 0, cash: 0, lunas: 0, lengkap: 0 };
+  const cardCounts = { 'tempo-belum': 0, 'tempo-sudah': 0, cash: 0, lunas: 0, lengkap: 0 };
   for (let i = 0; i < baseRows.length; i++) {
     const c = baseRows[i].cat;
     if (cardCounts[c] !== undefined) cardCounts[c]++;
   }
-  ['tempo', 'cash', 'lunas', 'lengkap'].forEach(function(k) {
-    const el = document.getElementById('fixC' + k);
+  ['tempo-belum', 'tempo-sudah', 'cash', 'lunas', 'lengkap'].forEach(function(k) {
+    const idKey = k.replace(/-/g, '');  // 'tempo-belum' → 'tempobelum'
+    const el = document.getElementById('fixC' + idKey);
     if (el) el.textContent = (cardCounts[k] || 0).toLocaleString('id-ID');
   });
 
