@@ -4662,7 +4662,13 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
                     // kesempatan setelah event loop agar allData sudah terisi.
                     if (typeof scanUmPenjualan === 'function') {
                         scanUmPenjualan();
-                        setTimeout(function(){ try { scanUmPenjualan(); } catch(_) {} }, 250);
+                        // Hanya scan ulang jika percobaan pertama belum menemukan Data
+                        // Penjualan sama sekali (allData mungkin belum selesai di-hydrate
+                        // saat boot). Kalau sudah ada hasil, jangan scan 2x agar tab tidak
+                        // terasa lambat saat dibuka.
+                        if (!scanUmRows || !scanUmRows.length) {
+                            setTimeout(function(){ try { scanUmPenjualan(); } catch(_) {} }, 250);
+                        }
                     }
                 } catch(e) { console.warn('scanum init', e); }
             }
@@ -9344,8 +9350,10 @@ function scanUmPenjualan(){
 function scanUmRender(){
   const tb=document.getElementById('scanumTbody'); if(!tb) return;
   if(!scanUmDone){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa data.</td></tr>';return;}
-  scanUmRows=scanUmBuild();
-  scanUmRefreshMonthOptions();
+  // Catatan performa: JANGAN scanUmBuild() di sini. scanUmRender() dipanggil setiap
+  // kali user mengetik di kolom cari / mengubah filter, jadi ia hanya boleh memfilter
+  // & menggambar ulang scanUmRows yang sudah ada (dibangun oleh scanUmPenjualan()).
+  // Membangun ulang seluruh pencocokan di sini membuat tab terasa sangat lambat.
   const { rows, months } = scanUmGetFilteredRows();
   scanUmUpdateCards(rows);
   const info=document.getElementById('scanumInfo'); if(info) {
@@ -9363,10 +9371,6 @@ function scanUmRender(){
   tb.innerHTML=html;
 }
 function scanUmOpenFaktur(no){
-  if(scanUmDone){
-    scanUmRows=scanUmBuild();
-    scanUmRender();
-  }
   const fKey=scanUmFaktur(no);
   const allPj=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
   const allUm=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
