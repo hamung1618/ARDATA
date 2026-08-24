@@ -2196,6 +2196,21 @@ body.dark-mode .fix-b-lengkap { background: rgba(139,92,246,0.15); color: #c4b5f
   height: auto; padding: 0; border: none; background: transparent !important;
 }
 
+/* Tabel Scan Uang Masuk × Penjualan juga di-render virtual, sama seperti
+   tabel Anomali di atas (asumsi tinggi baris seragam SCANUM_ROW_H = 36px
+   di JS). Aturan di bawah ini WAJIB ada agar isi sel panjang (mis. Toko /
+   Keterangan) tidak membuat baris lebih tinggi dari 36px, supaya
+   topPad/botPad virtualisasi tetap sinkron dengan tinggi sungguhan. */
+#scanumTable { table-layout: fixed; }
+#scanumTbody td {
+  height: 36px; max-height: 36px; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+  box-sizing: border-box;
+}
+#scanumTbody tr.fix-pad td {
+  height: auto; padding: 0; border: none; background: transparent !important;
+}
+
 #tab-anomali thead th:nth-child(6),
 #tab-anomali thead th:nth-child(9) { white-space: nowrap; }
 
@@ -2855,8 +2870,8 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
               <div class="scanum-card orphan"><span>🔵 UM Tidak Ada di PJ</span><strong id="scanCOrphan">0</strong></div>
             </div>
             <div class="scanum-toolbar">
-              <input id="scanumSearch" type="search" placeholder="Cari No Faktur, toko, sales..." oninput="scanUmRender()">
-              <select id="scanumFilter" onchange="scanUmRender()">
+              <input id="scanumSearch" type="search" placeholder="Cari No Faktur, toko, sales..." oninput="scanUmDebouncedRender()">
+              <select id="scanumFilter" onchange="scanUmDebouncedRender()">
                 <option value="all">Semua hasil</option>
                 <option value="ok">🟢 Cocok</option>
                 <option value="partial">🟡 Sebagian</option>
@@ -2864,16 +2879,16 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
                 <option value="missing">🔴 Belum Bayar / Tanpa Nominal</option>
                 <option value="orphan">🔵 UM Tidak Ada di PJ</option>
               </select>
-              <select id="scanumType" onchange="scanUmRender()">
+              <select id="scanumType" onchange="scanUmDebouncedRender()">
                 <option value="all">Semua pembayaran</option>
                 <option value="tempo">Tempo saja</option>
                 <option value="cash">Cash saja</option>
                 <option value="cashdropping">Cash Dropping saja</option>
               </select>
-              <select id="scanumMonth1" onchange="scanUmRender()" title="Bulan penjualan utama">
+              <select id="scanumMonth1" onchange="scanUmDebouncedRender()" title="Bulan penjualan utama">
                 <option value="all">Bulan 1: Semua</option>
               </select>
-              <select id="scanumMonth2" onchange="scanUmRender()" title="Bulan penjualan kedua (opsional)">
+              <select id="scanumMonth2" onchange="scanUmDebouncedRender()" title="Bulan penjualan kedua (opsional)">
                 <option value="">Bulan 2: —</option>
               </select>
               <span id="scanumInfo" class="scanum-info">Belum dilakukan scan.</span>
@@ -2888,8 +2903,8 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
                 </div>
               </div>
             </div>
-            <div class="scanum-table-wrap" id="scanumScroll">
-              <table class="scanum-table">
+            <div class="scanum-table-wrap" id="scanumScroll" onscroll="scanUmOnScroll()">
+              <table class="scanum-table" id="scanumTable">
                 <thead><tr>
                   <th>No</th><th>Status</th><th>No. Faktur</th><th>Tanggal PJ</th><th>Sales</th><th>Toko</th><th>Jenis</th>
                   <th class="num">Nominal Penjualan</th><th class="num">Uang Masuk</th><th class="num">Selisih</th><th>Keterangan</th>
@@ -9347,6 +9362,36 @@ function scanUmPenjualan(){
   scanUmRefreshMonthOptions();
   scanUmRender();
 }
+// ---- Virtualisasi tabel Scan UM × Penjualan (sama pola dengan tab Anomali) ----
+// scanUmRender(): dipanggil saat data/filter berubah — menghitung ulang baris
+//   yang lolos filter, memperbarui kartu ringkasan & info, lalu reset scroll
+//   ke atas dan menggambar ulang hanya jendela baris yang terlihat.
+// scanUmRenderVisible(): dipanggil saat scroll (via rAF) — TIDAK menghitung
+//   ulang filter, hanya menggambar ulang potongan baris yang sedang terlihat
+//   dari scanUmFilteredRows yang sudah ada. Ini membuat scroll tetap mulus
+//   walau hasil ribuan baris.
+let scanUmFilteredRows = [];
+const SCANUM_ROW_H = 36;
+const SCANUM_OVERSCAN = 8;
+let scanUmScrollRaf = 0;
+
+function scanUmOnScroll(){
+  if (scanUmScrollRaf) return;
+  scanUmScrollRaf = requestAnimationFrame(function(){
+    scanUmScrollRaf = 0;
+    scanUmRenderVisible();
+  });
+}
+
+function scanUmRowHtml(r, i){
+  const badge=r.status==='ok'?'ok':r.status==='partial'?'partial':r.status==='amount'?'amount':r.status==='missing'?'missing':'orphan';
+  const sign=r.selisih>0?'+':''; const faktur=scanUmSafe(r.noFaktur);
+  const fEsc=faktur.replace(/'/g,"\\'");
+  const salesLabel = r.umSection==='CASH DROPPING' && r.dropSales ? scanUmSafe(r.sales||'—')+' <span class="scanum-muted">('+scanUmSafe(r.dropSales)+')</span>' : scanUmSafe(r.sales||'—');
+  const jenisLabel = r.umSection==='CASH DROPPING' ? 'CASH DROPPING' : scanUmSafe(r.jenis);
+  return '<tr style="height:'+SCANUM_ROW_H+'px;"><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(scanUmStatusLabel(r.status,r.missingKind))+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+fEsc+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+salesLabel+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+jenisLabel+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
+}
+
 function scanUmRender(){
   const tb=document.getElementById('scanumTbody'); if(!tb) return;
   if(!scanUmDone){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa data.</td></tr>';return;}
@@ -9355,21 +9400,47 @@ function scanUmRender(){
   // & menggambar ulang scanUmRows yang sudah ada (dibangun oleh scanUmPenjualan()).
   // Membangun ulang seluruh pencocokan di sini membuat tab terasa sangat lambat.
   const { rows, months } = scanUmGetFilteredRows();
+  scanUmFilteredRows = rows;
   scanUmUpdateCards(rows);
   const info=document.getElementById('scanumInfo'); if(info) {
     const mtxt=months ? [...months].map(scanUmMonthLabel).join(' + ') : 'semua bulan';
-    info.textContent='Penjualan: '+mtxt+' · Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Pembayaran UM tetap dibaca lintas bulan (penting untuk TEMPO akhir bulan).';
+    info.textContent='Penjualan: '+mtxt+' · Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Pembayaran UM tetap dibaca lintas bulan (penting untuk TEMPO akhir bulan) · virtualisasi aktif';
   }
-  if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Tidak ada hasil untuk filter ini.</td></tr>';return;}
-  const max=1000; const shown=rows.slice(0,max); let html='';
-  shown.forEach((r,i)=>{ const badge=r.status==='ok'?'ok':r.status==='partial'?'partial':r.status==='amount'?'amount':r.status==='missing'?'missing':'orphan'; const sign=r.selisih>0?'+':''; const faktur=scanUmSafe(r.noFaktur);
-    const salesLabel = r.umSection==='CASH DROPPING' && r.dropSales ? scanUmSafe(r.sales||'—')+' <span class="scanum-muted">('+scanUmSafe(r.dropSales)+')</span>' : scanUmSafe(r.sales||'—');
-    const jenisLabel = r.umSection==='CASH DROPPING' ? 'CASH DROPPING' : scanUmSafe(r.jenis);
-    html+='<tr><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(scanUmStatusLabel(r.status,r.missingKind))+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+faktur.replace(/'/g,"\\'")+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+salesLabel+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+jenisLabel+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
-  });
-  if(rows.length>max) html+='<tr><td colspan="11" class="scanum-empty">Menampilkan '+max.toLocaleString('id-ID')+' dari '+rows.length.toLocaleString('id-ID')+' hasil. Gunakan pencarian/filter untuk mempersempit.</td></tr>';
-  tb.innerHTML=html;
+  const scroller=document.getElementById('scanumScroll');
+  if (scroller) scroller.scrollTop = 0;
+  scanUmRenderVisible();
 }
+
+function scanUmRenderVisible(){
+  const tb=document.getElementById('scanumTbody'); if(!tb) return;
+  if(!scanUmDone) return; // scanUmRender() sudah menampilkan pesan "belum scan"
+  const rows=scanUmFilteredRows;
+  const n=rows.length;
+  if(!n){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Tidak ada hasil untuk filter ini.</td></tr>';return;}
+  const scroller=document.getElementById('scanumScroll');
+  const scrollTop = scroller ? scroller.scrollTop : 0;
+  const viewH = scroller ? (scroller.clientHeight || 560) : 560;
+  let start = Math.floor(scrollTop / SCANUM_ROW_H) - SCANUM_OVERSCAN;
+  if (start < 0) start = 0;
+  let end = Math.ceil((scrollTop + viewH) / SCANUM_ROW_H) + SCANUM_OVERSCAN;
+  if (end > n) end = n;
+  const topPad = start * SCANUM_ROW_H;
+  const botPad = (n - end) * SCANUM_ROW_H;
+  let html = '';
+  if (topPad > 0) {
+    html += '<tr class="fix-pad"><td colspan="11" style="height:'+topPad+'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
+  }
+  for (let i = start; i < end; i++) html += scanUmRowHtml(rows[i], i);
+  if (botPad > 0) {
+    html += '<tr class="fix-pad"><td colspan="11" style="height:'+botPad+'px;line-height:0;font-size:0;border:none;padding:0;"></td></tr>';
+  }
+  tb.innerHTML = html;
+}
+
+// Debounce input pencarian & perubahan filter supaya scanUmRender() (yang
+// memfilter ribuan baris) tidak dijalankan berkali-kali saat user masih
+// mengetik / mengganti dropdown secara cepat.
+const scanUmDebouncedRender = (typeof debounce === 'function') ? debounce(scanUmRender, 250) : scanUmRender;
 function scanUmOpenFaktur(no){
   const fKey=scanUmFaktur(no);
   const allPj=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
