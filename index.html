@@ -6843,6 +6843,13 @@ const ANO_EXCLUDE_MONTH_NAMES = {
   4: ['april', 'apr']
 };
 
+// Faktur TEMPO di Penjualan tidak dianggap anomali (jenis 1) selama belum lewat
+// jatuh tempo — normal jika memang belum waktunya ditagih/dicatat di AR.
+// Data Penjualan tidak punya kolom termin per-faktur, jadi dipakai default termin
+// yang sama seperti default Jatuh Tempo untuk entri AR manual/transfer (tgl faktur + 14 hari).
+// Ubah angka ini jika termin standar toko berbeda.
+const ANO_TEMPO_DEFAULT_DAYS = 14;
+
 function anoIsExcludedMonth(monthNum) {
   return ANO_EXCLUDE_MONTHS.indexOf(Number(monthNum)) >= 0;
 }
@@ -7235,10 +7242,8 @@ function fixRebuildFromAno() {
     fixAllRows = rows;
     fixCounts = counts;
     fixLastBuiltFp = (typeof anoDataFingerprint === 'function') ? anoDataFingerprint() : String(rows.length);
-    ['tempo','cash','lunas','lengkap'].forEach(function(k) {
-      const el = document.getElementById('fixC' + k);
-      if (el) el.textContent = (counts[k] || 0).toLocaleString('id-ID');
-    });
+    // Angka di 4 kartu ringkasan diupdate di dalam fixApplyFilter() (mengikuti
+    // filter bulan/sumber/pencarian yang sedang aktif), jadi tidak di-set di sini.
     fixApplyFilter();
   } catch (e) {
     console.error('fixRebuildFromAno', e);
@@ -7267,30 +7272,47 @@ function fixApplyFilter() {
   const sumberEl = document.getElementById('fixFilterSumber');
   const bulan = bulanEl ? bulanEl.value : '';
   const sumber = sumberEl ? sumberEl.value : '';
-  let rows = fixAllRows;
-  if (fixActiveCat && fixActiveCat !== 'semua') {
-    rows = rows.filter(function(r) { return r.cat === fixActiveCat; });
-  }
+
+  // Base set mengikuti filter bulan/sumber/pencarian (belum termasuk filter
+  // kategori dari kartu) — dipakai juga untuk update angka di 4 kartu ringkasan
+  // supaya kartu ikut menyesuaikan filter bulan, bukan selalu total.
+  let baseRows = fixAllRows;
   if (bulan) {
-    rows = rows.filter(function(r) {
+    baseRows = baseRows.filter(function(r) {
       return (typeof anoMonthFromTgl === 'function' ? anoMonthFromTgl(r.tglFaktur) : '') === bulan;
     });
   }
   if (sumber) {
-    rows = rows.filter(function(r) {
+    baseRows = baseRows.filter(function(r) {
       const s = String(r.sumberAr || '').trim().toUpperCase();
       if (sumber === '—') return !s || s === '—' || s === '-';
       return s === sumber.toUpperCase();
     });
   }
   if (q) {
-    rows = rows.filter(function(r) {
+    baseRows = baseRows.filter(function(r) {
       return String(r.noFaktur).toLowerCase().indexOf(q) >= 0 ||
         String(r.sales).toLowerCase().indexOf(q) >= 0 ||
         String(r.toko).toLowerCase().indexOf(q) >= 0 ||
         String(r.ket).toLowerCase().indexOf(q) >= 0 ||
         String(r.sumberAr).toLowerCase().indexOf(q) >= 0;
     });
+  }
+
+  // Update angka di 4 kartu ringkasan supaya ikut filter bulan/sumber/pencarian aktif
+  const cardCounts = { tempo: 0, cash: 0, lunas: 0, lengkap: 0 };
+  for (let i = 0; i < baseRows.length; i++) {
+    const c = baseRows[i].cat;
+    if (cardCounts[c] !== undefined) cardCounts[c]++;
+  }
+  ['tempo', 'cash', 'lunas', 'lengkap'].forEach(function(k) {
+    const el = document.getElementById('fixC' + k);
+    if (el) el.textContent = (cardCounts[k] || 0).toLocaleString('id-ID');
+  });
+
+  let rows = baseRows;
+  if (fixActiveCat && fixActiveCat !== 'semua') {
+    rows = rows.filter(function(r) { return r.cat === fixActiveCat; });
   }
   fixFilteredRows = rows;
   const info = document.getElementById('fixResultInfo');
@@ -7450,6 +7472,37 @@ function anoScheduleRebuild(force) {
   }
 }
 
+/** Parse tanggal fleksibel: Excel serial number, "DD/MM/YYYY", atau "YYYY-MM-DD". */
+function anoParseDateFlexible(v) {
+  if (v == null || v === '') return null;
+  if (typeof v === 'number') {
+    if (v > 20000 && v < 80000) {
+      const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+      return isNaN(d.getTime()) ? null : d;
+    }
+    return null;
+  }
+  const s = String(v).trim();
+  let m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+  if (m) return new Date(+m[3], +m[2] - 1, +m[1]);
+  m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+  if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
+  return null;
+}
+
+/** True jika faktur TEMPO sudah lewat jatuh tempo (tgl faktur + termin hari). */
+function anoIsPastDueTempo(tglFakturVal, days) {
+  const d = anoParseDateFlexible(tglFakturVal);
+  // Tanggal tidak diketahui/tidak bisa di-parse → tetap anggap sudah lewat jatuh
+  // tempo (safe default) supaya anomali riil tidak sampai tersembunyi begitu saja.
+  if (!d) return true;
+  const due = new Date(d.getFullYear(), d.getMonth(), d.getDate());
+  due.setDate(due.getDate() + (days || ANO_TEMPO_DEFAULT_DAYS));
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  return today >= due;
+}
+
 function anoUmSettled(u) {
   // Anggap "lunas" jika status eksplisit LUNAS, ATAU secara nominal bayar sudah
   // menutup/mekewati tagihan — meskipun kolom STATUS di data mentah kosong ("—").
@@ -7577,7 +7630,11 @@ function anoRebuild(force) {
         const payCoversPj = umPay > 0 && (umPay >= nom - TOL || Math.abs(umPay - nom) <= TOL);
         const tagCoversPj = umTag > 0 && Math.abs(umTag - nom) <= TOL && (umLunas || isTf);
         const umCovered = payCoversPj || tagCoversPj;
-        if (!umCovered) {
+        // Belum lewat jatuh tempo (tgl faktur + termin default) → belum wajib
+        // masuk AR, jadi bukan anomali dulu. Hanya faktur yang SUDAH lewat
+        // jatuh tempo tapi tetap belum tercatat di AR yang dianggap anomali.
+        const belumJatuhTempo = !anoIsPastDueTempo(p.tglFaktur, ANO_TEMPO_DEFAULT_DAYS);
+        if (!umCovered && !belumJatuhTempo) {
           // Status UM yang tidak ambigu
           let statusUmShow = '—';
           if (hasUm) {
@@ -7807,13 +7864,8 @@ function anoRebuild(force) {
   });
   anoFindings = findings;
 
-  // update counts (single pass)
-  const counts = [0, 0, 0, 0, 0, 0, 0];
-  for (let i = 0; i < findings.length; i++) counts[findings[i].jenis]++;
-  for (let i = 1; i <= 5; i++) {
-    const el = document.getElementById('anoC' + i);
-    if (el) el.textContent = counts[i].toLocaleString('id-ID');
-  }
+  // Angka di kartu ringkasan diupdate di dalam anoRender() (mengikuti filter
+  // bulan/sumber/pencarian yang sedang aktif), jadi tidak dihitung ulang di sini.
   anoLastFingerprint = anoDataFingerprint();
   anoRender();
   try { if (typeof fixRebuildFromAno === 'function') fixRebuildFromAno(); } catch (_) {}
@@ -7942,29 +7994,46 @@ function anoRender() {
   const sumberEl = document.getElementById('anoFilterSumber');
   const bulan = bulanEl ? bulanEl.value : '';
   const sumber = sumberEl ? sumberEl.value : '';
-  let rows = anoFindings;
-  if (anoActiveCat !== 'semua') {
-    const cat = parseInt(anoActiveCat, 10);
-    rows = rows.filter(r => r.jenis === cat);
-  }
+
+  // Base set mengikuti filter bulan/sumber/pencarian (belum termasuk filter
+  // kategori dari kartu/pill) — dipakai juga untuk update angka di kartu
+  // ringkasan supaya kartu ikut menyesuaikan filter bulan, bukan selalu total.
+  let baseRows = anoFindings;
   if (bulan) {
-    rows = rows.filter(r => anoMonthFromTgl(r.tglFaktur) === bulan);
+    baseRows = baseRows.filter(r => anoMonthFromTgl(r.tglFaktur) === bulan);
   }
   if (sumber) {
-    rows = rows.filter(r => {
+    baseRows = baseRows.filter(r => {
       const s = String(r.sumberAr || '').trim().toUpperCase();
       if (sumber === '—') return !s || s === '—' || s === '-';
       return s === sumber.toUpperCase();
     });
   }
   if (q) {
-    rows = rows.filter(r =>
+    baseRows = baseRows.filter(r =>
       String(r.noFaktur).toLowerCase().includes(q) ||
       String(r.sales).toLowerCase().includes(q) ||
       String(r.toko).toLowerCase().includes(q) ||
       String(r.ket).toLowerCase().includes(q) ||
       String(r.sumberAr).toLowerCase().includes(q)
     );
+  }
+
+  // Update angka di 5 kartu ringkasan supaya ikut filter bulan/sumber/pencarian aktif
+  const cardCounts = [0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < baseRows.length; i++) {
+    const j = baseRows[i].jenis;
+    if (j >= 1 && j <= 5) cardCounts[j]++;
+  }
+  for (let i = 1; i <= 5; i++) {
+    const el = document.getElementById('anoC' + i);
+    if (el) el.textContent = cardCounts[i].toLocaleString('id-ID');
+  }
+
+  let rows = baseRows;
+  if (anoActiveCat !== 'semua') {
+    const cat = parseInt(anoActiveCat, 10);
+    rows = rows.filter(r => r.jenis === cat);
   }
   anoFilteredRows = rows;
   const info = document.getElementById('anoResultInfo');
