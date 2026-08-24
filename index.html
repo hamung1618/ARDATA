@@ -2299,6 +2299,8 @@ body.dark-mode .scanum-detail-table td{border-bottom-color:#24384f}
 body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
 @media(max-width:700px){.scanum-detail-modal{max-width:96vw!important}.scanum-detail-grid{grid-template-columns:1fr 1fr}.scanum-detail-table{font-size:.68rem}}
 </style>
+
+<script src="https://cdn.jsdelivr.net/npm/dexie@4.0.11/dist/dexie.min.js"></script>
 </head>
 <body class="">
 <div id="tagihanPrintArea" style="display:none;">
@@ -2903,7 +2905,7 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
                 <div class="dropdown-menu" id="scanumMenuDd" style="right:0;left:auto;min-width:250px;">
                   <div style="padding:8px 12px;font-size:0.72rem;color:#64748b;line-height:1.4;white-space:normal;">Alat kontrol saja — <b>tidak mengubah Data Penjualan, Uang Masuk, maupun AR.</b></div>
                   <div class="um-menu-divider"></div>
-                  <button type="button" class="um-menu-item" onclick="scanUmPenjualan(); closeAllMenus();">🔄 Scan Sekarang</button>
+                  <button type="button" class="um-menu-item" onclick="scanUmPenjualanFast(); closeAllMenus();">🔄 Scan Sekarang</button>
                   <button type="button" class="um-menu-item" onclick="scanUmExportExcel(); closeAllMenus();">📥 Export Excel</button>
                 </div>
               </div>
@@ -9461,6 +9463,183 @@ function scanUmUpdateCards(rows){
   }
 })();
 
+
+/* =====================================================================
+   SCAN UM PERFORMANCE LAYER
+   - IndexedDB/Dexie sebagai sumber data persisten
+   - Web Worker untuk matching berat
+   - Main thread hanya render viewport
+   ===================================================================== */
+const SCAN_DB_NAME = 'DATACENTER_SCAN_DB_V2';
+let scanDb = null;
+let scanWorker = null;
+let scanWorkerSeq = 0;
+const scanWorkerWait = new Map();
+
+function scanDbOpen(){
+  if(scanDb) return scanDb;
+  if(typeof Dexie === 'undefined'){
+    console.warn('Dexie belum tersedia; fallback ke mesin lama.');
+    return null;
+  }
+  scanDb = new Dexie(SCAN_DB_NAME);
+  scanDb.version(1).stores({
+    sales: '++id, bulan, tanggal, faktur, sales, customer, alamat, total',
+    uangMasuk: '++id, bulan, tanggal, faktur, sales, customer, alamat, nominal, section',
+    scanResults: '++id, bulan, faktur, status'
+  });
+  return scanDb;
+}
+
+async function scanDbPutAll(name, rows){
+  const db=scanDbOpen();
+  if(!db) return;
+  await db.table(name).clear();
+  if(rows && rows.length) await db.table(name).bulkPut(rows);
+}
+
+function scanDbWorker(){
+  if(scanWorker) return scanWorker;
+  const code = `
+self.onmessage = function(ev){
+  const d=ev.data||{};
+  if(d.type!=='match') return;
+  const sales=d.sales||[], ums=d.uangMasuk||[];
+  const norm=v=>String(v==null?'':v).trim().toUpperCase().replace(/\\\\s+/g,' ');
+  const nf=v=>norm(v).replace(/[^A-Z0-9]/g,'').replace(/^0+/,'') || norm(v);
+  const money=v=>{
+    if(typeof v==='number') return v||0;
+    const x=String(v==null?'':v).replace(/[^0-9-]/g,'');
+    return Number(x)||0;
+  };
+  const idx=new Map();
+  ums.forEach((u,i)=>{
+    const f=nf(u.faktur);
+    if(!idx.has(f)) idx.set(f,[]);
+    idx.get(f).push(i);
+  });
+  const used=new Set(), out=[];
+  const sim=(a,b)=>{
+    a=norm(a); b=norm(b);
+    if(!a||!b) return 0;
+    if(a===b) return 1;
+    if(a.includes(b)||b.includes(a)) return .65;
+    return 0;
+  };
+  for(const p of sales){
+    const pf=nf(p.faktur), ps=norm(p.sales), pc=norm(p.customer), pa=norm(p.alamat);
+    const pn=money(p.total), cand=[];
+    const direct=idx.get(pf)||[];
+    direct.forEach(i=>cand.push(i));
+    // Identity fallback: only inspect UM indexed by sales/customer,
+    // not every UM row.
+    const pool=new Set();
+    ums.forEach((u,i)=>{
+      if(sim(ps,u.sales)>=1 || sim(pc,u.customer)>=1 || sim(pa,u.alamat)>=1) pool.add(i);
+    });
+    pool.forEach(i=>{ if(!cand.includes(i)) cand.push(i); });
+    let best=-1, bestScore=0;
+    for(const i of cand){
+      if(used.has(i)) continue;
+      const u=ums[i], us=norm(u.sales), uc=norm(u.customer), ua=norm(u.alamat);
+      const un=money(u.nominal);
+      let score=0;
+      if(pf && nf(u.faktur)===pf) score+=30;
+      if(ps && us && ps===us) score+=25;
+      else if(ps&&us&&sim(ps,us)>=.65) score+=12;
+      if(pc && uc && pc===uc) score+=25;
+      else if(pc&&uc&&sim(pc,uc)>=.65) score+=12;
+      if(pa && ua && pa===ua) score+=15;
+      else if(pa&&ua&&sim(pa,ua)>=.65) score+=7;
+      if(pn && un){
+        const diff=Math.abs(pn-un);
+        if(diff===0) score+=25;
+        else if(diff<=1000) score+=18;
+        else if(diff/pn<=.05) score+=7;
+      }
+      if(score>bestScore){bestScore=score;best=i;}
+    }
+    if(best>=0 && bestScore>=45){
+      used.add(best);
+      const u=ums[best], un=money(u.nominal);
+      const diff=un-pn;
+      out.push({
+        bulan:p.bulan, faktur:p.faktur, sales:p.sales, customer:p.customer,
+        alamat:p.alamat, pj:pn, um:un, selisih:diff,
+        status: Math.abs(diff)<=1000?'ok':(un<pn?'partial':'amount'),
+        matchScore:bestScore, umId:u.id
+      });
+    }else{
+      out.push({
+        bulan:p.bulan, faktur:p.faktur, sales:p.sales, customer:p.customer,
+        alamat:p.alamat, pj:pn, um:0, selisih:-pn,
+        status:'missing', matchScore:0, umId:null
+      });
+    }
+  }
+  self.postMessage({type:'done', requestId:d.requestId, rows:out});
+};
+`;
+  const blob=new Blob([code],{type:'application/javascript'});
+  scanWorker=new Worker(URL.createObjectURL(blob));
+  scanWorker.onmessage=e=>{
+    const d=e.data||{}, fn=scanWorkerWait.get(d.requestId);
+    if(fn){scanWorkerWait.delete(d.requestId);fn(d);}
+  };
+  return scanWorker;
+}
+
+function scanWorkerRun(payload){
+  return new Promise((resolve,reject)=>{
+    try{
+      const w=scanDbWorker(), requestId=++scanWorkerSeq;
+      scanWorkerWait.set(requestId,resolve);
+      w.postMessage({...payload,requestId});
+    }catch(e){reject(e);}
+  });
+}
+
+
+async function scanUmPersistCurrentData(){
+  const db=scanDbOpen();
+  if(!db) return;
+  const salesRows = (typeof allData!=='undefined' && Array.isArray(allData)) ? allData : [];
+  const umRows = (typeof umAllRows!=='undefined' && Array.isArray(umAllRows)) ? umAllRows : [];
+  const sales = salesRows.map((r,i)=>({
+    id:r._scanDbId || ('s'+i+'_'+String(r['No.Faktur']||r.noFaktur||'')),
+    bulan:String(r.Bulan||r.bulan||''),
+    tanggal:r.Tanggal||r.tanggal||'',
+    faktur:r['No.Faktur']||r.noFaktur||'',
+    sales:r.Sales||r.sales||'',
+    customer:r.Customer||r.customer||r.Toko||r.toko||'',
+    alamat:r.Alamat||r.alamat||'',
+    total:Number(r.Total||r.total||0)||0
+  }));
+  const uangMasuk = umRows.map((r,i)=>({
+    id:r._scanDbId || ('u'+i+'_'+String(r.faktur||'')),
+    bulan:String(r.Bulan||r.bulan||''),
+    tanggal:r.Tanggal||r.tanggal||'',
+    faktur:r.faktur||r['No.Faktur']||'',
+    sales:r.sales||r.Sales||'',
+    customer:r.customer||r.Customer||r.toko||r.Toko||'',
+    alamat:r.alamat||r.Alamat||'',
+    nominal:Number(r.nominal||r.bayar||r.Total||0)||0,
+    section:r.section||r.jenis||''
+  }));
+  await db.sales.clear();
+  await db.uangMasuk.clear();
+  if(sales.length) await db.sales.bulkPut(sales);
+  if(uangMasuk.length) await db.uangMasuk.bulkPut(uangMasuk);
+}
+
+async function scanUmGetMonthData(monthValue){
+  const db=scanDbOpen();
+  if(!db) return null;
+  const sales=await db.sales.where('bulan').equals(String(monthValue)).toArray();
+  const ums=await db.uangMasuk.toArray(); // UM tetap lintas bulan untuk pembayaran Tempo
+  return {sales, uangMasuk:ums};
+}
+
 function scanUmPenjualan(){
   const infoEl=document.getElementById('scanumInfo');
   if(infoEl) infoEl.textContent='Memindai…';
@@ -9511,7 +9690,7 @@ function scanUmRender(){
   if(!scanUmDone){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa data.</td></tr>';return;}
   // Catatan performa: JANGAN scanUmBuild() di sini. scanUmRender() dipanggil setiap
   // kali user mengetik di kolom cari / mengubah filter, jadi ia hanya boleh memfilter
-  // & menggambar ulang scanUmRows yang sudah ada (dibangun oleh scanUmPenjualan()).
+  // & menggambar ulang scanUmRows yang sudah ada (dibangun oleh scanUmPenjualanFast()).
   // Membangun ulang seluruh pencocokan di sini membuat tab terasa sangat lambat.
   const { rows, months } = scanUmGetFilteredRows();
   scanUmFilteredRows = rows;
@@ -9732,7 +9911,7 @@ function scanUmCancelTransaction(no){
   }catch(e){console.error('scanUmCancelTransaction refresh',e);}
 
   scanUmCloseFakturModal();
-  scanUmPenjualan();
+  scanUmPenjualanFast();
   const parts=[];
   if(item.penjualan.length) parts.push(item.penjualan.length+' baris Penjualan');
   if(item.um.length) parts.push(item.um.length+' baris Uang Masuk');
@@ -9758,3 +9937,27 @@ function scanUmExportExcel(){
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 </body>
 </html>
+
+
+async function scanUmPenjualanFast(){
+  const info=document.getElementById('scanumInfo');
+  if(info) info.textContent='Menyiapkan data bulan terkini…';
+  const db=scanDbOpen();
+  if(!db){ scanUmPenjualanFast(); return; }
+
+  try{
+    await scanUmPersistCurrentData();
+    const sel=document.getElementById('scanumFilterBulan');
+    const month=sel ? sel.value : String(new Date().getMonth()+1).padStart(2,'0');
+    const data=await scanUmGetMonthData(month);
+    if(info) info.textContent='Memindai '+data.sales.length.toLocaleString('id-ID')+' transaksi bulan '+month+'…';
+    const result=await scanWorkerRun({type:'match',sales:data.sales,uangMasuk:data.uangMasuk});
+    scanUmRows=result.rows||[];
+    scanUmFilteredRows=scanUmRows.slice();
+    scanUmDone=true;
+    if(typeof scanUmRender==='function') scanUmRender();
+  }catch(e){
+    console.error('scanUmPenjualanFast',e);
+    if(info) info.textContent='Scan gagal: '+(e.message||e);
+  }
+}
