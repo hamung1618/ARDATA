@@ -4673,17 +4673,27 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
                     if (typeof umAllRows !== 'undefined' && (!umAllRows || !umAllRows.length) && typeof umLoadFromStorage === 'function') {
                         umLoadFromStorage();
                     }
-                    // Data Penjualan dapat selesai di-hydrate sesaat setelah boot. Beri satu
-                    // kesempatan setelah event loop agar allData sudah terisi.
+                    // Panel tampil SEKETIKA; pemindaian ditunda satu tick + ditambah
+                    // indikator "Memindai…", jadi klik tab tidak membekukan UI.
+                    // (IndexedDB bersifat async: bila percobaan pertama masih kosong,
+                    // ulangi 2x lagi — build kini sangat cepat jadi aman.)
                     if (typeof scanUmPenjualan === 'function') {
-                        scanUmPenjualan();
-                        // Hanya scan ulang jika percobaan pertama belum menemukan Data
-                        // Penjualan sama sekali (allData mungkin belum selesai di-hydrate
-                        // saat boot). Kalau sudah ada hasil, jangan scan 2x agar tab tidak
-                        // terasa lambat saat dibuka.
-                        if (!scanUmRows || !scanUmRows.length) {
-                            setTimeout(function(){ try { scanUmPenjualan(); } catch(_) {} }, 250);
+                        // Bila sudah pernah discan, tampilkan hasil lama seketika,
+                        // lalu bangun ulang di background agar selalu segar.
+                        if (scanUmDone && typeof scanUmRender === 'function') {
+                            try { scanUmRender(); } catch(_) {}
                         }
+                        if (!scanUmDone) {
+                            const info = document.getElementById('scanumInfo');
+                            if (info) info.textContent = 'Memindai…  (tabel akan terisi otomatis)';
+                        }
+                        setTimeout(function(){
+                            try { scanUmPenjualan(); } catch(_) {}
+                            if (!scanUmRows || !scanUmRows.length) {
+                                setTimeout(function(){ try { if(!scanUmRows || !scanUmRows.length) scanUmPenjualan(); } catch(_) {} }, 400);
+                                setTimeout(function(){ try { if(!scanUmRows || !scanUmRows.length) scanUmPenjualan(); } catch(_) {} }, 1200);
+                            }
+                        }, 30);
                     }
                 } catch(e) { console.warn('scanum init', e); }
             }
@@ -9265,18 +9275,19 @@ function scanUmHitungStatus(ctx){
 }
 
 function scanUmBuild(){
-  // Rekonsiliasi konservatif: No. Faktur adalah kunci pertama, tetapi BUKAN satu-satunya.
-  // Bila nomor salah ketik, sistem mencoba Customer/Toko + Alamat + Sales + Nominal/Tanggal.
-  // Pembayaran di Uang Masuk dengan No. Faktur yang SAMA tetaplah pembayaran faktur itu,
-  // walau dicatat di bagian CASH DROPPING vs PIUTANG TEMPO yang berbeda — beda bagian hanya
-  // menjadi catatan peringatan, BUKAN alasan menandai "Belum".
+  // Rekonsiliasi konservatif — hasil/logika identik dengan versi lama, tetapi
+  // pencarian pasangan-identitas TIDAK lagi O(PJ x UM). Index token toko/alamat/
+  // sales dibangun SEKALI, lalu tiap faktur hanya mengevaluasi kandidat yang
+  // berbagi minimal satu token (di luar itu skor max = 20 < 60, tak bisa menang).
+  const uni=A=>{const o=[];for(let i=0;i<A.length;i++){if(o.indexOf(A[i])<0)o.push(A[i]);}return o;};
   const pjRows=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
   const ums=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
   const TOL=1000, pjMap=Object.create(null), umMap=Object.create(null);
 
   pjRows.forEach(r=>{
     const f=scanUmFaktur(r['No.Faktur']); if(!f)return;
-    if(!pjMap[f]) pjMap[f]={noFaktur:String(r['No.Faktur']||'').trim(),sales:r.Sales||'',toko:r.Customer||'',alamat:r.Alamat||'',tanggal:r.Tanggal||'',nominal:0,lines:0,cash:false,tempo:false};
+    if(!pjMap[f]) pjMap[f]={noFaktur:String(r['No.Faktur']||'').trim(),sales:r.Sales||'',toko:r.Customer||'',alamat:r.Alamat||'',tanggal:r.Tanggal||'',nominal:0,lines:0,cash:false,tempo:false,
+      salesT:uni(scanUmTokens(r.Sales)),tokoT:uni(scanUmTokens(r.Customer)),alamatT:uni(scanUmTokens(r.Alamat)),tglNorm:scanUmNorm(r.Tanggal)};
     const x=pjMap[f]; x.nominal+=scanUmNum(r.Total); x.lines++;
     const isCash=scanUmIsCashPembayaran(r.Pembayaran);
     if(isCash)x.cash=true; else x.tempo=true;
@@ -9284,7 +9295,8 @@ function scanUmBuild(){
 
   ums.forEach((r,idx)=>{
     const f=scanUmFaktur(r.faktur); if(!f)return;
-    if(!umMap[f]) umMap[f]={noFaktur:String(r.faktur||'').trim(),sales:r.sales||'',toko:r.toko||'',alamat:r.alamat||'',tanggalPertama:r.date||'',tanggalTerakhir:r.date||'',bayar:0,tagihan:0,count:0,realPaymentRows:0,titipRows:0,lunasRows:0,hasTitip:false,sections:Object.create(null),dropSales:[],rows:[],idxs:[]};
+    if(!umMap[f]) umMap[f]={noFaktur:String(r.faktur||'').trim(),sales:r.sales||'',toko:r.toko||'',alamat:r.alamat||'',tanggalPertama:r.date||'',tanggalTerakhir:r.date||'',bayar:0,tagihan:0,count:0,realPaymentRows:0,titipRows:0,lunasRows:0,hasTitip:false,sections:Object.create(null),dropSales:[],rows:[],idxs:[],
+      salesT:uni(scanUmTokens(r.sales)),tokoT:uni(scanUmTokens(r.toko)),alamatT:uni(scanUmTokens(r.alamat)),tglNorm:scanUmNorm(r.date)};
     const x=umMap[f]; x.rows.push(r); x.idxs.push(idx);
     const bayar=scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf);
     x.bayar+=bayar; x.count++; if(bayar>0)x.realPaymentRows++;
@@ -9296,21 +9308,36 @@ function scanUmBuild(){
   });
 
   const usedUm=new Set(), rows=[], seen=new Set();
-  const groupScore=(p,u,isTempo)=>{
+  // Index token: token -> Set faktur UM (dibangun sekali, urutan = urutan asli).
+  const umKeys=Object.keys(umMap);
+  const tokToko={}, tokAlamat={}, tokSales={};
+  const idxAdd=(map,key,tokArr)=>{for(let i=0;i<tokArr.length;i++){const t=tokArr[i];let s2=map[t];if(!s2)map[t]=s2=new Set();s2.add(key);}};
+  umKeys.forEach(k=>{const u=umMap[k];idxAdd(tokToko,k,u.tokoT);idxAdd(tokAlamat,k,u.alamatT);idxAdd(tokSales,k,u.salesT);});
+  // setSim/salesMatch/simNorm = ekuivalen matematis persis scanUmTextSimilarity &
+  // scanUmSalesMatch lama (token sudah di-unik-kan di atas).
+  const setSim=(A,B)=>{
+    if(!A.length||!B.length) return 0;
+    if(A.length===B.length){let same=true;for(let i=0;i<A.length;i++){if(A[i]!==B[i]){same=false;break;}}if(same)return 1;}
+    let hit=0; for(let i=0;i<A.length;i++){if(B.indexOf(A[i])>=0)hit++;}
+    return hit/Math.max(A.length,B.length);
+  };
+  const salesMatch=(A,B)=>{if(!A.length||!B.length)return false;for(let i=0;i<A.length;i++){if(B.indexOf(A[i])>=0)return true;}return false;};
+  const simNorm=(a,b)=>{if(!a||!b)return 0;if(a===b)return 1;const A=[...new Set(a.split(' '))],B=[...new Set(b.split(' '))];let hit=0;for(let i=0;i<A.length;i++){if(B.indexOf(A[i])>=0)hit++;}return hit/Math.max(A.length,B.length);};
+  const score=(p,u,isTempo)=>{
     const wanted=scanUmSectionForType(isTempo);
     if(!u||!u.sections[wanted])return -1;
-    let score=0;
-    const toko=scanUmTextSimilarity(p.toko,u.toko);
-    const alamat=scanUmTextSimilarity(p.alamat,u.alamat);
-    const sales=scanUmSalesMatch(p.sales,u.sales)?1:0;
-    const date=scanUmTextSimilarity(p.tanggal,u.tanggalPertama);
-    if(toko===1)score+=40; else if(toko>=0.5)score+=25;
-    if(alamat===1)score+=25; else if(alamat>=0.5)score+=12;
-    if(sales)score+=20;
+    let sc=0;
+    const toko=setSim(p.tokoT,u.tokoT);
+    const alamat=setSim(p.alamatT,u.alamatT);
+    const sales=salesMatch(p.salesT,u.salesT)?1:0;
+    const date=simNorm(p.tglNorm,u.tglNorm);
+    if(toko===1)sc+=40; else if(toko>=0.5)sc+=25;
+    if(alamat===1)sc+=25; else if(alamat>=0.5)sc+=12;
+    if(sales)sc+=20;
     const diff=Math.abs(Math.abs(u.bayar)-Math.abs(p.nominal));
-    if(diff<=TOL)score+=15; else if(p.nominal>0&&Math.abs(diff/p.nominal)<=0.05)score+=7;
-    if(date===1)score+=5;
-    return score;
+    if(diff<=TOL)sc+=15; else if(p.nominal>0&&Math.abs(diff/p.nominal)<=0.05)sc+=7;
+    if(date===1)sc+=5;
+    return sc;
   };
 
   Object.keys(pjMap).forEach(f=>{
@@ -9319,7 +9346,20 @@ function scanUmBuild(){
     const wantedSec=scanUmSectionForType(isTempo);
     const secMatch=!!(u && u.sections[wantedSec]);
     // If invoice is missing/wrong, find the strongest identity match in the correct section.
-    if(!u){let best=null,bestScore=0;Object.keys(umMap).forEach(k=>{const cand=umMap[k];if(usedUm.has(k))return;const sc=groupScore(p,cand,isTempo);if(sc>bestScore){bestScore=sc;best=cand;}});if(best&&bestScore>=60){u=best;mode='IDENTITAS (FAKTUR MUNGKIN SALAH KETIK)';}}
+    if(!u){
+      const win=new Set();
+      const addWin=(mapArr,toks)=>{for(let i=0;i<toks.length;i++){const s2=mapArr[toks[i]];if(s2)s2.forEach(k=>win.add(k));}};
+      addWin(tokToko,p.tokoT); addWin(tokAlamat,p.alamatT); addWin(tokSales,p.salesT);
+      let best=null,bestScore=0;
+      for(let ki=0;ki<umKeys.length;ki++){
+        const k=umKeys[ki];
+        if(!win.has(k)||usedUm.has(k))continue;
+        if(!umMap[k].sections[wantedSec])continue;
+        const sc=score(p,umMap[k],isTempo);
+        if(sc>bestScore){bestScore=sc;best=umMap[k];}
+      }
+      if(best&&bestScore>=60){u=best;mode='IDENTITAS (FAKTUR MUNGKIN SALAH KETIK)';}
+    }
     if(u){const uf=scanUmFaktur(u.noFaktur);usedUm.add(uf);}
     const actualSec=scanUmPickSectionLabel(u&&u.sections?u.sections:null,wantedSec);
     const outcome=scanUmHitungStatus({hasPenjualan:true,matched:!!u,isTempo,mode,pjNominal:pj,umNominal:u?u.bayar:0,wantedSec,actualSec,secMatch:!!(u&&u.sections[wantedSec]),hasTitip:!!(u&&u.hasTitip),tol:TOL});
@@ -9358,9 +9398,18 @@ function scanUmUpdateCards(rows){
   document.getElementById('scanCOrphan').textContent=fmt(rows.filter(r=>r.status==='orphan').length);
 }
 function scanUmPenjualan(){
-  scanUmRows=scanUmBuild(); scanUmDone=true;
-  scanUmRefreshMonthOptions();
-  scanUmRender();
+  const infoEl=document.getElementById('scanumInfo');
+  if(infoEl) infoEl.textContent='Memindai…';
+  setTimeout(function(){
+    try {
+      scanUmRows=scanUmBuild(); scanUmDone=true;
+      scanUmRefreshMonthOptions();
+      scanUmRender();
+    } catch(e){
+      console.error('scanUmPenjualan', e);
+      if(infoEl) infoEl.textContent='Gagal memindai: '+(e&&e.message||e);
+    }
+  }, 15);
 }
 // ---- Virtualisasi tabel Scan UM × Penjualan (sama pola dengan tab Anomali) ----
 // scanUmRender(): dipanggil saat data/filter berubah — menghitung ulang baris
@@ -9621,7 +9670,7 @@ function scanUmCancelTransaction(no){
 }
 
 function scanUmExportExcel(){
-  if(!scanUmDone) scanUmPenjualan();
+  if(!scanUmDone){ scanUmRows=scanUmBuild(); scanUmDone=true; scanUmRefreshMonthOptions(); }
   if(typeof XLSX==='undefined'){alert('Library Excel belum termuat.');return;}
   const rows=scanUmRows.map(r=>({'Status':r.status,'No Faktur':r.noFaktur,'Tanggal PJ':r.tanggal,'Sales':r.sales,'Toko':r.toko,'Jenis':r.jenis,'Nominal Penjualan':r.pj,'Uang Masuk':r.um,'Selisih':r.selisih,'Keterangan':r.ket}));
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Scan UM x PJ'); XLSX.writeFile(wb,'Scan_Uang_Masuk_vs_Penjualan_'+new Date().toISOString().slice(0,10)+'.xlsx');
@@ -9629,6 +9678,7 @@ function scanUmExportExcel(){
 </script>
 
 
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
