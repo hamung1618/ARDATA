@@ -7903,9 +7903,9 @@ function anoRebuild(force) {
       const matchedUm6 = umByFaktur6 || umByIdentity6;
       const hasUm6 = !!(matchedUm6 && ((matchedUm6.count || 0) > 0 || (matchedUm6.totalBayar || 0) > 0 || matchedUm6.hasLunas || matchedUm6.hasCashDropping || matchedUm6.hasPiutangTempo));
       const arOpen6 = !!(a && (a.kategori === 'belum' || a.kategori === 'titip'));
-      // Jika AR masih terbuka, kasus ini sudah ditangani sebagai anomali jenis 4.
-      // Jangan buat anomali kedua untuk faktur yang sama.
-      if (!hasUm6 && !arOpen6) {
+      // Hanya flag anomali jika AR masih TERBUKA (belum lunas) tapi belum ada UM.
+      // Jika AR sudah LUNAS, Cash tanpa UM tercatat adalah NORMAL (pembayaran cash langsung lunas).
+      if (!hasUm6 && arOpen6) {
         findings.push({
           jenis: 5,
           noFaktur: p.noFaktur,
@@ -7917,7 +7917,7 @@ function anoRebuild(force) {
           statusAr: a ? a.statusLabel : '—',
           statusUm: '—',
           sumberAr: a ? a.sumber : '—',
-          ket: 'Faktur CASH di Penjualan (Rp ' + Math.round(Math.abs(p.nominal)).toLocaleString('id-ID') + '), belum ditemukan di Uang Masuk setelah pencocokan Faktur + Toko/Alamat + Nominal'
+          ket: 'Faktur CASH di Penjualan (Rp ' + Math.round(Math.abs(p.nominal)).toLocaleString('id-ID') + '), belum ditemukan di Uang Masuk meskipun AR masih ' + a.statusLabel
         });
       }
     }
