@@ -7255,13 +7255,24 @@ function fixClassify(p, a, u) {
   const umSettled = hasU && (anoUmSettled(u) || (refNom > 0 && umPay >= refNom - TOL));
   const paymentConsistent = !hasU || !refNom || !umPay || umSettled || (hasA && a.kategori !== 'lunas');
 
-  if (hasP && hasA && hasU && pjArNominalOK && arUmTagihanOK && paymentConsistent) {
-    if (isLunas || umSettled) {
-      return { cat: 'lengkap', ket: (isTempo ? 'Tempo' : (isCash ? 'Cash' : 'PJ')) + ' + AR + UM selaras · nominal cocok' };
-    }
-    // Tiga sumber ada, tetapi belum lunas: tetap masuk Tempo/Cash, bukan Lengkap.
-    if (isTempo) return { cat: 'tempo', ket: 'Tempo di Penjualan + AR + UM · pembayaran belum menutup tagihan' };
-    if (isCash) return { cat: 'cash', ket: 'Cash di Penjualan + AR + UM · nominal cocok' };
+  // Kategori "Lengkap":
+  // - TEMPO: PJ + AR + UM selaras (piutang harus tercatat di AR dan dibayar via UM)
+  // - CASH: PJ + UM selaras SAJA (tunai langsung, tidak perlu AR karena bukan piutang)
+  //         Jika tidak ada UM tapi AR LUNAS = juga lengkap (tunai bayar langsung)
+  
+  // TEMPO lengkap: harus punya AR + UM
+  if (isTempo && hasP && hasA && hasU && pjArNominalOK && arUmTagihanOK && (isLunas || umSettled)) {
+    return { cat: 'lengkap', ket: 'Tempo di Penjualan + AR + UM selaras · pembayaran lengkap' };
+  }
+
+  // CASH lengkap: punya PJ + UM selaras (AR tidak perlu untuk cash tunai)
+  if (isCash && hasP && hasU && umSettled) {
+    return { cat: 'lengkap', ket: 'Cash di Penjualan + Uang Masuk selaras · pembayaran tunai tercatat' };
+  }
+
+  // CASH lengkap tanpa UM: hanya PJ, tidak ada AR (normal untuk cash tunai langsung)
+  if (isCash && hasP && !hasA && !hasU) {
+    return { cat: 'lengkap', ket: 'Cash di Penjualan · pembayaran tunai langsung' };
   }
 
   if (isLunas) {
