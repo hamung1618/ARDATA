@@ -1,17 +1,14 @@
 {
-  "name": "Bank Data Penjualan & AR",
+  "name": "Bank Data Penjualan & AR Minyak/Rupa",
   "short_name": "Data Penjualan",
-  "description": "Bank Data Penjualan, AR Minyak & Rupa-Rupa, Uang Masuk, dan Anomali",
-  "start_url": "./",
+  "description": "Aplikasi Bank Data Penjualan dan AR (Minyak/Rupa) — bisa diakses offline.",
+  "start_url": "./index.html",
   "scope": "./",
-  "id": "./",
   "display": "standalone",
   "orientation": "any",
   "background_color": "#0f2942",
   "theme_color": "#0f2942",
   "lang": "id",
-  "dir": "ltr",
-  "categories": ["business", "finance", "productivity"],
   "icons": [
     {
       "src": "./icon-192.png",
@@ -20,16 +17,16 @@
       "purpose": "any"
     },
     {
-      "src": "./icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png",
-      "purpose": "any"
-    },
-    {
       "src": "./icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "./icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "./icon-512.png",

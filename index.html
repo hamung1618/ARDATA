@@ -2169,6 +2169,21 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
   document.head.appendChild(s);
 })();
 </script>
+
+<style id="scanum-style">
+#tab-scanum{padding:0!important;background:transparent}
+.scanum-wrap{padding:18px;max-width:100%;box-sizing:border-box}
+.scanum-head{display:flex;justify-content:space-between;align-items:center;gap:16px;padding:18px 20px;border:1px solid #dbe5ef;border-radius:14px;background:linear-gradient(135deg,#f8fbff,#fff);box-shadow:0 4px 18px rgba(15,41,66,.06)}
+.scanum-head h2{margin:0 0 5px;font-size:1.08rem;color:#0f2942}.scanum-head p{margin:0;font-size:.76rem;color:#64748b}.scanum-actions{display:flex;gap:8px;flex-wrap:wrap}
+.scanum-note{margin:12px 0;padding:10px 13px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a5f;font-size:.76rem}
+.scanum-cards{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:9px;margin:12px 0}.scanum-card{border:1px solid #e2e8f0;border-radius:11px;padding:11px 12px;background:#fff;min-height:56px}.scanum-card span{display:block;font-size:.68rem;color:#64748b}.scanum-card strong{display:block;margin-top:5px;font-size:1.15rem;color:#0f2942}.scanum-card.ok{border-left:4px solid #16a34a}.scanum-card.partial{border-left:4px solid #eab308}.scanum-card.warn{border-left:4px solid #f59e0b}.scanum-card.danger{border-left:4px solid #dc2626}.scanum-card.orphan{border-left:4px solid #2563eb}
+.scanum-toolbar{display:flex;align-items:center;gap:8px;margin:12px 0}.scanum-toolbar input,.scanum-toolbar select{height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;background:#fff;color:#0f2942;font-size:.75rem}.scanum-toolbar input{width:280px}.scanum-info{font-size:.7rem;color:#64748b;margin-left:auto}
+.scanum-table-wrap{height:calc(100vh - 385px);min-height:360px;overflow:auto;border:1px solid #dbe5ef;border-radius:12px;background:#fff}.scanum-table{width:100%;border-collapse:separate;border-spacing:0;font-size:.72rem}.scanum-table th{position:sticky;top:0;z-index:2;background:#0f2942;color:#fff;padding:9px 7px;text-align:left;white-space:nowrap}.scanum-table td{padding:8px 7px;border-bottom:1px solid #edf2f7;vertical-align:middle}.scanum-table tbody tr:hover{background:#f8fbff}.scanum-table .num{text-align:right;white-space:nowrap}.scanum-empty{text-align:center!important;padding:50px 20px!important;color:#64748b}.scanum-badge{display:inline-flex;align-items:center;gap:4px;padding:3px 7px;border-radius:999px;font-size:.64rem;font-weight:700;white-space:nowrap}.scanum-badge.ok{background:#dcfce7;color:#166534}.scanum-badge.partial{background:#fef9c3;color:#854d0e}.scanum-badge.amount{background:#ffedd5;color:#9a3412}.scanum-badge.missing{background:#fee2e2;color:#991b1b}.scanum-badge.orphan{background:#dbeafe;color:#1e40af}.scanum-badge.cash{background:#f1f5f9;color:#475569}.scanum-muted{color:#94a3b8}.scanum-link{color:#2563eb;text-decoration:none;font-weight:700}.scanum-link:hover{text-decoration:underline}
+body.dark-mode #tab-scanum .scanum-head,body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table-wrap{background:#0f1c2e;border-color:#24384f}body.dark-mode #tab-scanum .scanum-head h2,body.dark-mode #tab-scanum .scanum-card strong{color:#e2e8f0}body.dark-mode #tab-scanum .scanum-head p,body.dark-mode #tab-scanum .scanum-card span,body.dark-mode #tab-scanum .scanum-info{color:#94a3b8}body.dark-mode #tab-scanum .scanum-toolbar input,body.dark-mode #tab-scanum .scanum-toolbar select{background:#0f1c2e;color:#e2e8f0;border-color:#334155}body.dark-mode #tab-scanum .scanum-table td{border-color:#24384f;color:#cbd5e1}body.dark-mode #tab-scanum .scanum-table tbody tr:hover{background:#16243a}
+@media(max-width:1000px){.scanum-cards{grid-template-columns:repeat(3,1fr)}.scanum-head{align-items:flex-start;flex-direction:column}.scanum-toolbar{flex-wrap:wrap}.scanum-info{margin-left:0}.scanum-table-wrap{height:calc(100vh - 500px)}}
+@media(max-width:600px){.scanum-cards{grid-template-columns:repeat(2,1fr)}.scanum-toolbar input{width:100%}.scanum-toolbar select{flex:1}}
+</style>
+
 </head>
 <body class="">
 <div id="tagihanPrintArea" style="display:none;">
@@ -2291,6 +2306,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
             <button type="button" class="tab-btn" data-tab="uangmasuk" onclick="switchTab(&#39;uangmasuk&#39;)" aria-hidden="true">💰 DATA UANG MASUK</button>
             <button type="button" class="tab-btn" data-tab="anomali" onclick="switchTab(&#39;anomali&#39;)">⚠️ DATA ANOMALI</button>
             <button type="button" class="tab-btn" data-tab="fix" onclick="switchTab(&#39;fix&#39;)">✅ DATA FIX</button>
+            <button type="button" class="tab-btn" data-tab="scanum" onclick="switchTab('scanum')">🔎 SCAN UANG MASUK × PENJUALAN</button>
         </div>
 
         <div class="tab-panel" id="tab-penjualan">
@@ -2730,6 +2746,60 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         </div><!-- /tab-ar -->
 
         <!-- ========== TAB DATA UANG MASUK ========== -->
+
+
+        <!-- ========== TAB SCAN UANG MASUK × PENJUALAN ========== -->
+        <div class="tab-panel" id="tab-scanum">
+          <div class="scanum-wrap">
+            <div class="scanum-head">
+              <div>
+                <h2>🔎 Scan Data Uang Masuk × Data Penjualan</h2>
+                <p>Alat kontrol saja — <b>tidak mengubah Data Penjualan, Uang Masuk, maupun AR.</b></p>
+              </div>
+              <div class="scanum-actions">
+                <button type="button" class="btn btn-primary" onclick="scanUmPenjualan()">🔄 Scan Sekarang</button>
+                <button type="button" class="btn btn-secondary" onclick="scanUmExportExcel()">📥 Export Excel</button>
+              </div>
+            </div>
+            <div class="scanum-note">💡 Tujuan utama: memastikan pembayaran yang sudah masuk dapat ditemukan pada Data Penjualan, dan menemukan faktur Tempo yang belum terlihat pembayarannya — sehingga kelupaan membuat AR bisa terdeteksi.</div>
+            <div class="scanum-cards" id="scanumCards">
+              <div class="scanum-card all"><span>Total Penjualan</span><strong id="scanCAll">0</strong></div>
+              <div class="scanum-card ok"><span>🟢 Cocok</span><strong id="scanCOk">0</strong></div>
+              <div class="scanum-card partial"><span>🟡 Sebagian</span><strong id="scanCPartial">0</strong></div>
+              <div class="scanum-card warn"><span>⚠️ Nominal Berbeda</span><strong id="scanCAmount">0</strong></div>
+              <div class="scanum-card danger"><span>🔴 Belum Ditemukan UM</span><strong id="scanCMissing">0</strong></div>
+              <div class="scanum-card orphan"><span>🔵 UM Tidak Ada di PJ</span><strong id="scanCOrphan">0</strong></div>
+            </div>
+            <div class="scanum-toolbar">
+              <input id="scanumSearch" type="search" placeholder="Cari No Faktur, toko, sales..." oninput="scanUmRender()">
+              <select id="scanumFilter" onchange="scanUmRender()">
+                <option value="all">Semua hasil</option>
+                <option value="ok">🟢 Cocok</option>
+                <option value="partial">🟡 Sebagian</option>
+                <option value="amount">⚠️ Nominal Berbeda</option>
+                <option value="missing">🔴 Belum Ditemukan UM</option>
+                <option value="orphan">🔵 UM Tidak Ada di PJ</option>
+              </select>
+              <select id="scanumType" onchange="scanUmRender()">
+                <option value="all">Semua pembayaran</option>
+                <option value="tempo">Tempo saja</option>
+                <option value="cash">Cash saja</option>
+              </select>
+              <span id="scanumInfo" class="scanum-info">Belum dilakukan scan.</span>
+            </div>
+            <div class="scanum-table-wrap" id="scanumScroll">
+              <table class="scanum-table">
+                <thead><tr>
+                  <th>No</th><th>Status</th><th>No. Faktur</th><th>Tanggal PJ</th><th>Sales</th><th>Toko</th><th>Jenis</th>
+                  <th class="num">Nominal Penjualan</th><th class="num">Uang Masuk</th><th class="num">Selisih</th><th>Keterangan</th>
+                </tr></thead>
+                <tbody id="scanumTbody"><tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa Data Uang Masuk × Data Penjualan.</td></tr></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+        <!-- /TAB SCAN UANG MASUK × PENJUALAN -->
+
         <div class="tab-panel" id="tab-uangmasuk">
           <div class="um-wrap">
             <div class="um-toolbar">
@@ -4465,6 +4535,22 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                     if (typeof umEnsureUploadWired === 'function') umEnsureUploadWired();
                     if (typeof umAllRows !== 'undefined' && umAllRows.length && typeof umDoSearch === 'function') umDoSearch();
                 } catch(e) {}
+            }
+            // Scan UM × Penjualan: pastikan data Uang Masuk dari storage sudah dipulihkan,
+            // lalu langsung lakukan scan agar tab tidak tampil kosong. Read-only.
+            if (name === 'scanum') {
+                try {
+                    if (typeof umEnsureUploadWired === 'function') umEnsureUploadWired();
+                    if (typeof umAllRows !== 'undefined' && (!umAllRows || !umAllRows.length) && typeof umLoadFromStorage === 'function') {
+                        umLoadFromStorage();
+                    }
+                    // Data Penjualan dapat selesai di-hydrate sesaat setelah boot. Beri satu
+                    // kesempatan setelah event loop agar allData sudah terisi.
+                    if (typeof scanUmPenjualan === 'function') {
+                        scanUmPenjualan();
+                        setTimeout(function(){ try { scanUmPenjualan(); } catch(_) {} }, 250);
+                    }
+                } catch(e) { console.warn('scanum init', e); }
             }
         }
 
@@ -8926,6 +9012,111 @@ function anoExportCSV() {
 
 </script>
 
+
+
+<script>
+// =====================================================================
+// SCAN UANG MASUK × PENJUALAN — READ ONLY
+// Tidak menulis/mengubah Data Penjualan, Uang Masuk, atau AR.
+// =====================================================================
+let scanUmRows = [];
+let scanUmDone = false;
+
+function scanUmNum(v){
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  if (v == null || v === '') return 0;
+  let s = String(v).trim().replace(/[^0-9,.-]/g,'');
+  if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.replace(/\./g,'').replace(',','.');
+  else if (s.indexOf(',') >= 0) s = s.replace(',','.');
+  else if (/^\d{1,3}(\.\d{3})+$/.test(s)) s = s.replace(/\./g,'');
+  const n = Number(s); return isFinite(n) ? n : 0;
+}
+function scanUmFaktur(v){ return typeof anoNormFaktur === 'function' ? anoNormFaktur(v) : (String(v||'').trim().replace(/^0+/,'') || String(v||'').trim()); }
+function scanUmDate(v){
+  if (!v) return null;
+  if (typeof v === 'number' && typeof excelSerialToDate === 'function') return excelSerialToDate(v);
+  const s=String(v).trim(); let m=s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/); if(m) return new Date(+m[3],+m[2]-1,+m[1]);
+  m=s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})/); if(m) return new Date(+m[1],+m[2]-1,+m[3]);
+  const d=new Date(s); return isNaN(d.getTime())?null:d;
+}
+function scanUmDateText(v){ const d=scanUmDate(v); return d ? String(d.getDate()).padStart(2,'0')+'/'+String(d.getMonth()+1).padStart(2,'0')+'/'+d.getFullYear() : (v||'—'); }
+function scanUmMoney(v){ return 'Rp '+Math.round(scanUmNum(v)).toLocaleString('id-ID'); }
+function scanUmSafe(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function scanUmDays(a,b){ const da=scanUmDate(a), db=scanUmDate(b); return da&&db ? Math.abs(da-db)/86400000 : 999; }
+
+function scanUmBuild(){
+  const pjMap={}; const umMap={};
+  const pjRows=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
+  pjRows.forEach(r=>{
+    const f=scanUmFaktur(r['No.Faktur']); if(!f) return;
+    if(!pjMap[f]) pjMap[f]={noFaktur:String(r['No.Faktur']||'').trim(),sales:r.Sales||'',toko:r.Customer||'',alamat:r.Alamat||'',tanggal:r.Tanggal||'',nominal:0,tempo:false,cash:false,lines:0};
+    const x=pjMap[f]; x.nominal+=scanUmNum(r.Total); x.lines++;
+    const pay=String(r.Pembayaran==null?'':r.Pembayaran).trim().toLowerCase();
+    const isCash=(pay===''||pay==='0'||pay==='cash'||pay==='tunai');
+    if(isCash) x.cash=true; else x.tempo=true;
+  });
+  const ums=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
+  ums.forEach(r=>{
+    const f=scanUmFaktur(r.faktur); if(!f) return;
+    if(!umMap[f]) umMap[f]={noFaktur:String(r.faktur||'').trim(),sales:r.sales||'',toko:r.toko||'',tanggal:r.date||'',bayar:0,tagihan:0,count:0,status:r.status||''};
+    const x=umMap[f];
+    x.bayar += scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf);
+    x.tagihan=Math.max(x.tagihan,scanUmNum(r.tagihan)); x.count++;
+    if(r.date) x.tanggal=r.date;
+    if(String(r.status||'').toUpperCase()==='LUNAS') x.status='LUNAS'; else if(!x.status) x.status=r.status||'';
+  });
+  Object.values(umMap).forEach(x=>{ if(x.bayar<=0 && x.status==='LUNAS' && x.tagihan>0) x.bayar=x.tagihan; });
+  const rows=[]; const seen=new Set(); const TOL=1000;
+  Object.keys(pjMap).forEach(f=>{
+    const p=pjMap[f], u=umMap[f]; seen.add(f); const pj=Math.abs(p.nominal), um=u?Math.abs(u.bayar):0;
+    let status='missing', label='🔴 BELUM DITEMUKAN UM', ket='Belum ditemukan pembayaran di Data Uang Masuk';
+    if(u){ const diff=um-pj; if(Math.abs(diff)<=TOL){status='ok';label='🟢 COCOK';ket='Nominal pembayaran sesuai penjualan';}
+      else if(um>0 && um<pj-TOL){status='partial';label='🟡 SEBAGIAN';ket='Pembayaran belum menutup seluruh nominal penjualan';}
+      else {status='amount';label='⚠️ NOMINAL BERBEDA';ket='Uang masuk lebih besar dari nominal penjualan';}
+    }
+    rows.push({kind:'pj',status,noFaktur:p.noFaktur,tanggal:p.tanggal,sales:p.sales,toko:p.toko,jenis:p.tempo?'TEMPO':'CASH',pj,um,selisih:um-pj,ket,lines:p.lines,tempo:p.tempo});
+  });
+  Object.keys(umMap).forEach(f=>{ if(seen.has(f)) return; const u=umMap[f]; rows.push({kind:'um',status:'orphan',noFaktur:u.noFaktur,tanggal:'—',sales:u.sales,toko:u.toko,jenis:'UM SAJA',pj:0,um:u.bayar,selisih:u.bayar,ket:'Ada di Uang Masuk tetapi No. Faktur tidak ditemukan di Data Penjualan',lines:0,tempo:false}); });
+  return rows;
+}
+function scanUmPenjualan(){
+  scanUmRows=scanUmBuild(); scanUmDone=true;
+  document.getElementById('scanCAll').textContent=scanUmRows.filter(r=>r.kind==='pj').length.toLocaleString('id-ID');
+  document.getElementById('scanCOk').textContent=scanUmRows.filter(r=>r.status==='ok').length.toLocaleString('id-ID');
+  document.getElementById('scanCPartial').textContent=scanUmRows.filter(r=>r.status==='partial').length.toLocaleString('id-ID');
+  document.getElementById('scanCAmount').textContent=scanUmRows.filter(r=>r.status==='amount').length.toLocaleString('id-ID');
+  document.getElementById('scanCMissing').textContent=scanUmRows.filter(r=>r.status==='missing' && r.tempo).length.toLocaleString('id-ID');
+  document.getElementById('scanCOrphan').textContent=scanUmRows.filter(r=>r.status==='orphan').length.toLocaleString('id-ID');
+  scanUmRender();
+}
+function scanUmRender(){
+  const tb=document.getElementById('scanumTbody'); if(!tb) return;
+  if(!scanUmDone){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa data.</td></tr>';return;}
+  const q=(document.getElementById('scanumSearch')?.value||'').toLowerCase().trim(); const f=document.getElementById('scanumFilter')?.value||'all'; const typ=document.getElementById('scanumType')?.value||'all';
+  let rows=scanUmRows.filter(r=>(f==='all'||r.status===f)&&(typ==='all'||(typ==='tempo'&&r.tempo)||(typ==='cash'&&r.kind==='pj'&&!r.tempo)));
+  if(q) rows=rows.filter(r=>(r.noFaktur+' '+r.sales+' '+r.toko).toLowerCase().includes(q));
+  const info=document.getElementById('scanumInfo'); if(info) info.textContent='Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Scan hanya membaca data';
+  if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Tidak ada hasil untuk filter ini.</td></tr>';return;}
+  const max=1000; const shown=rows.slice(0,max); let html='';
+  shown.forEach((r,i)=>{ const badge=r.status==='ok'?'ok':r.status==='partial'?'partial':r.status==='amount'?'amount':r.status==='missing'?'missing':'orphan'; const sign=r.selisih>0?'+':''; const faktur=scanUmSafe(r.noFaktur);
+    html+='<tr><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(r.status==='ok'?'🟢 COCOK':r.status==='partial'?'🟡 SEBAGIAN':r.status==='amount'?'⚠️ NOMINAL BERBEDA':r.status==='missing'?'🔴 BELUM DITEMUKAN UM':'🔵 UM TIDAK ADA DI PJ')+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+faktur.replace(/'/g,"\\'")+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+scanUmSafe(r.sales||'—')+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+scanUmSafe(r.jenis)+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
+  });
+  if(rows.length>max) html+='<tr><td colspan="11" class="scanum-empty">Menampilkan '+max.toLocaleString('id-ID')+' dari '+rows.length.toLocaleString('id-ID')+' hasil. Gunakan pencarian/filter untuk mempersempit.</td></tr>';
+  tb.innerHTML=html;
+}
+function scanUmOpenFaktur(no){
+  if(typeof openTransferModal==='function' && typeof allData!=='undefined' && allData.some(r=>scanUmFaktur(r['No.Faktur'])===scanUmFaktur(no))){
+    openTransferModal(no); return;
+  }
+  alert('No. Faktur '+no+' tidak ditemukan di Data Penjualan.');
+}
+function scanUmExportExcel(){
+  if(!scanUmDone) scanUmPenjualan();
+  if(typeof XLSX==='undefined'){alert('Library Excel belum termuat.');return;}
+  const rows=scanUmRows.map(r=>({'Status':r.status,'No Faktur':r.noFaktur,'Tanggal PJ':r.tanggal,'Sales':r.sales,'Toko':r.toko,'Jenis':r.jenis,'Nominal Penjualan':r.pj,'Uang Masuk':r.um,'Selisih':r.selisih,'Keterangan':r.ket}));
+  const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Scan UM x PJ'); XLSX.writeFile(wb,'Scan_Uang_Masuk_vs_Penjualan_'+new Date().toISOString().slice(0,10)+'.xlsx');
+}
+</script>
 
 
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
