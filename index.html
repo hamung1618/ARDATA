@@ -2118,7 +2118,7 @@ body.dark-mode .um-badge-section { background: rgba(99,102,241,0.2); color: #a5b
 
 .ano-wrap { padding: 0; }
 .ano-card {
-  background: #fff; border: 1px solid #e2e8f0; border-radius: 8px;
+  background: #fff; border: 1.5px solid #e2e8f0; border-radius: 8px;
   padding: 6px 10px; cursor: pointer; transition: border-color .15s, box-shadow .15s;
 }
 body.dark-mode .ano-card { background: #14243a; border-color: #24384f; }
@@ -2239,10 +2239,10 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 
 <style id="scanum-style">
 #tab-scanum{padding:0!important;background:transparent}
-.scanum-wrap{padding:18px;max-width:100%;box-sizing:border-box}
+.scanum-wrap{padding:0;max-width:100%;box-sizing:border-box}
 .scanum-actions{display:flex;gap:8px;flex-wrap:wrap}
 .scanum-note{margin:12px 0;padding:10px 13px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;color:#1e3a5f;font-size:.76rem}
-.scanum-cards{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;margin:12px 0}.scanum-card{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid #e2e8f0;border-left-width:3px;border-radius:8px;padding:0 10px;background:#fff;height:36px;min-height:36px}.scanum-card span{font-size:.66rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.scanum-card strong{font-size:.85rem;color:#0f2942;white-space:nowrap}.scanum-card.ok{border-left-color:#16a34a}.scanum-card.partial{border-left-color:#eab308}.scanum-card.warn{border-left-color:#f59e0b}.scanum-card.danger{border-left-color:#dc2626}.scanum-card.orphan{border-left-color:#2563eb}
+.scanum-cards{display:grid;grid-template-columns:repeat(6,minmax(120px,1fr));gap:8px;margin:0 0 12px}.scanum-card{display:flex;align-items:center;justify-content:space-between;gap:6px;border:1px solid #e2e8f0;border-left-width:3px;border-radius:8px;padding:0 10px;background:#fff;height:36px;min-height:36px}.scanum-card span{font-size:.66rem;color:#64748b;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.scanum-card strong{font-size:.85rem;color:#0f2942;white-space:nowrap}.scanum-card.ok{border-left-color:#16a34a}.scanum-card.partial{border-left-color:#eab308}.scanum-card.warn{border-left-color:#f59e0b}.scanum-card.danger{border-left-color:#dc2626}.scanum-card.orphan{border-left-color:#2563eb}
 .scanum-toolbar{display:flex;align-items:center;gap:8px;margin:12px 0}.scanum-toolbar input,.scanum-toolbar select{height:36px;border:1px solid #cbd5e1;border-radius:8px;padding:0 10px;background:#fff;color:#0f2942;font-size:.75rem}.scanum-toolbar input{width:280px}.scanum-info{font-size:.7rem;color:#64748b;margin-left:auto;white-space:nowrap}
 .scanum-title-mini{font-size:.78rem;font-weight:600;color:#0f2942;white-space:nowrap}
 body.dark-mode .scanum-title-mini{color:#e2e8f0}
@@ -2700,7 +2700,7 @@ body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table
     <button class="tabbtn btn-cetak" id="btnCetak" type="button" style="display:none;" aria-hidden="true">Cetak</button>
   </div>
   <div class="count-note" id="countNote">Belum ada data. Upload file atau input manual lewat menu untuk mulai.</div>
-  <div id="arSelBar" style="display: flex; align-items: center; gap: 10px; margin: 6px 0px 2px; padding: 8px 12px; background: rgb(255, 247, 237); border: 1px solid rgb(253, 186, 116); border-radius: 8px; font-size: 0.85rem; color: rgb(124, 45, 18);">
+  <div id="arSelBar" style="display: none; align-items: center; gap: 10px; margin: 6px 0px 2px; padding: 8px 12px; background: rgb(255, 247, 237); border: 1px solid rgb(253, 186, 116); border-radius: 8px; font-size: 0.85rem; color: rgb(124, 45, 18);">
     <span id="arSelCount">1 faktur dipilih</span>
     <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;" onclick="printTagihanTerpilih()">🧾 Cetak Tagihan Terpilih</button>
     <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;background:#fff;" onclick="clearArSelection()">Batal pilih</button>
@@ -3567,6 +3567,7 @@ body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table
             renderColumnMenu();
             applyFilters();
             updateHeaderSubtitle();
+            updateArSelBar();
         }
 
         // ===== DROPDOWN MENUS (Aksi / Kolom) =====
