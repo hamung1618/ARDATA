@@ -10173,3 +10173,267 @@ async function applyFiltersAsyncDexie(){
   setTimeout(initScanUmMenu,500);
 })();
 </script>
+
+
+<script id="scanUmSalesIdentityFinal">
+/* ================================================================
+   SCAN UM × PENJUALAN — FINAL SALES IDENTITY RULE
+   DATA PENJUALAN = MASTER
+   "ALIM/RAJU" => droppingSales=ALIM, sales=RAJU
+   SATU NO. FAKTUR PENJUALAN => SATU SALES
+   ================================================================ */
+
+function scanUmParseSalesField(v){
+  const raw=String(v==null?'':v).trim();
+  if(!raw) return {raw:'',droppingSales:'',sales:''};
+  const parts=raw.split('/').map(x=>String(x).trim()).filter(Boolean);
+  if(parts.length>=2){
+    return {
+      raw,
+      droppingSales:parts.slice(0,-1).join(' / '),
+      sales:parts[parts.length-1]
+    };
+  }
+  return {raw,droppingSales:'',sales:parts[0]};
+}
+
+function scanUmCanonicalSales(v){
+  return scanUmNorm(scanUmParseSalesField(v).sales);
+}
+
+function scanUmSalesMatch(a,b){
+  const A=scanUmCanonicalSales(a), B=scanUmCanonicalSales(b);
+  return !!A && !!B && A===B;
+}
+
+function scanUmBuild(){
+  const pjRows=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
+  const ums=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
+  const TOL=1000;
+  const pjMap=Object.create(null);
+  const usedRows=new Set();
+  scanUmMatchMap=Object.create(null);
+
+  const uniq=a=>[...new Set((a||[]).filter(Boolean))];
+  const rowPayment=r=>Math.abs(
+    scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+
+    scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf)
+  );
+  const sim=(a,b)=>{
+    const A=scanUmNorm(a),B=scanUmNorm(b);
+    if(!A||!B)return 0;
+    if(A===B)return 1;
+    const at=uniq(A.split(' ')),bt=uniq(B.split(' '));
+    let hit=0; for(const x of at)if(bt.includes(x))hit++;
+    return hit/Math.max(at.length,bt.length);
+  };
+
+  /* ---------------- DATA PENJUALAN = MASTER ---------------- */
+  pjRows.forEach(r=>{
+    const f=scanUmFaktur(r['No.Faktur']);
+    if(!f)return;
+    if(!pjMap[f]){
+      const parsed=scanUmParseSalesField(r.Sales);
+      pjMap[f]={
+        noFaktur:String(r['No.Faktur']||'').trim(),
+        sales:parsed.sales,
+        salesRaw:parsed.raw,
+        toko:r.Customer||'',
+        alamat:r.Alamat||'',
+        tanggal:r.Tanggal||'',
+        nominal:0,
+        lines:0,
+        cash:false,
+        tempo:false,
+        salesConflict:false,
+        salesSet:new Set()
+      };
+    }
+    const p=pjMap[f];
+    const ps=scanUmParseSalesField(r.Sales).sales;
+    if(ps)p.salesSet.add(scanUmNorm(ps));
+    /* Jangan pernah membuat satu faktur menjadi dua Sales.
+       Jika sumber Penjualan sendiri konflik, tetap gunakan Sales master
+       pertama dan tandai konflik sebagai data sumber. */
+    if(ps && scanUmNorm(ps)!==scanUmNorm(p.sales)) p.salesConflict=true;
+
+    p.nominal += scanUmNum(r.Total);
+    p.lines++;
+    if(scanUmIsCashPembayaran(r.Pembayaran))p.cash=true;
+    else p.tempo=true;
+  });
+
+  /* ---------------- DATA UANG MASUK ---------------- */
+  const umRows=ums.map((r,idx)=>{
+    const parsed=scanUmParseSalesField(r.sales);
+    return {
+      r,idx,
+      f:scanUmFaktur(r.faktur),
+      sales:parsed.sales,
+      droppingSales:parsed.droppingSales,
+      toko:String(r.toko||''),
+      alamat:String(r.alamat||''),
+      tanggal:String(r.date||''),
+      pay:rowPayment(r),
+      section:String(r.section||'').trim().toUpperCase()
+    };
+  });
+
+  const rows=[];
+  const candidatesFor=(p,isTempo)=>{
+    const wanted=scanUmSectionForType(isTempo);
+    const out=[];
+    for(const u of umRows){
+      if(usedRows.has(u.idx))continue;
+
+      /* Jenis pembayaran harus sesuai transaksi Penjualan. */
+      if(u.section && u.section!==wanted)continue;
+
+      /* SALES HARUS TEPAT. Ini mencegah JOSSY masuk ke faktur RAJU. */
+      if(scanUmNorm(p.sales) && scanUmNorm(u.sales)!==scanUmNorm(p.sales))continue;
+
+      const toko=sim(p.toko,u.toko);
+      const alamat=sim(p.alamat,u.alamat);
+
+      /* Jika kedua sumber punya identitas, identitas tersebut wajib cukup cocok. */
+      if(scanUmNorm(p.toko) && scanUmNorm(u.toko) && toko<0.5)continue;
+      if(scanUmNorm(p.alamat) && scanUmNorm(u.alamat) && alamat<0.5)continue;
+
+      const fakturSame=!!p.noFaktur && !!u.f && scanUmFaktur(p.noFaktur)===u.f;
+      const nominal=u.pay;
+      let score=0;
+      if(fakturSame)score+=25;
+      if(toko===1)score+=30; else if(toko>=0.5)score+=18;
+      if(alamat===1)score+=25; else if(alamat>=0.5)score+=15;
+      if(scanUmNorm(p.sales)===scanUmNorm(u.sales))score+=30;
+      if(nominal>0 && Math.abs(nominal-p.nominal)<=TOL)score+=25;
+      else if(nominal>0 && p.nominal>0 && Math.abs(nominal-p.nominal)/p.nominal<=0.05)score+=10;
+
+      /* Untuk faktur salah ketik, identitas kuat tetap cukup.
+         Untuk faktur sama pun identitas tetap wajib. */
+      if(score>=70)out.push({...u,score,fakturSame});
+    }
+    out.sort((a,b)=>b.score-a.score);
+    return out;
+  };
+
+  for(const f of Object.keys(pjMap)){
+    const p=pjMap[f];
+    const isTempo=p.tempo&&!p.cash;
+    const candidates=candidatesFor(p,isTempo);
+
+    /* Pilih hanya kandidat dengan identitas terbaik.
+       Baris UM lain dengan Sales berbeda tidak mungkin masuk. */
+    let picked=[];
+    if(candidates.length){
+      const best=candidates[0];
+      picked=[best];
+
+      /* Pembayaran tambahan hanya boleh digabung jika:
+         - Sales sama persis
+         - Toko & alamat tetap cocok
+         - dan berasal dari faktur yang sama / identitas sangat kuat */
+      for(let i=1;i<candidates.length;i++){
+        const c=candidates[i];
+        if(c.score<85)continue;
+        if(!c.fakturSame)continue;
+        picked.push(c);
+      }
+    }
+
+    picked.forEach(x=>usedRows.add(x.idx));
+
+    const bayar=picked.reduce((a,x)=>a+x.pay,0);
+    const sections={};
+    picked.forEach(x=>{if(x.section)sections[x.section]=(sections[x.section]||0)+1;});
+    const hasTitip=picked.some(x=>String(x.r.status||'').trim().toUpperCase()==='TITIP');
+    const wantedSec=scanUmSectionForType(isTempo);
+    const actualSec=scanUmPickSectionLabel(sections,wantedSec);
+    const matched=picked.length>0;
+    const first=picked[0];
+
+    const mode=matched
+      ? (first.f===scanUmFaktur(p.noFaktur)?'IDENTITAS + NO. FAKTUR':'IDENTITAS — FAKTUR MUNGKIN SALAH KETIK')
+      : 'TIDAK DITEMUKAN';
+
+    const outcome=scanUmHitungStatus({
+      hasPenjualan:true,
+      matched,
+      isTempo,
+      mode,
+      pjNominal:p.nominal,
+      umNominal:bayar,
+      wantedSec,
+      actualSec,
+      secMatch:!!sections[wantedSec],
+      hasTitip,
+      tol:TOL
+    });
+
+    rows.push({
+      kind:'pj',
+      status:outcome.status,
+      missingKind:outcome.missingKind,
+      noFaktur:p.noFaktur,
+      tanggal:p.tanggal,
+      sales:p.sales,
+      toko:p.toko,
+      alamat:p.alamat,
+      jenis:isTempo?'TEMPO':'CASH',
+      pj:outcome.pjNominal,
+      um:outcome.umNominal,
+      selisih:outcome.selisih,
+      ket:outcome.statusText,
+      lines:p.lines,
+      tempo:isTempo,
+      umCount:picked.length,
+      umPaymentRows:picked.filter(x=>x.pay>0).length,
+      umTitipRows:picked.filter(x=>String(x.r.status||'').trim().toUpperCase()==='TITIP').length,
+      matchMode:mode,
+      umSection:actualSec,
+      dropSales:uniq(picked.map(x=>x.droppingSales)).join(', '),
+      umDateFirst:first?first.tanggal:'', 
+      umDateLast:picked.length?picked[picked.length-1].tanggal:'',
+      matchedFaktur:first?String(first.r.faktur||'').trim():'',
+      salesConflict:p.salesConflict
+    });
+
+    /* Modal harus memakai BARIS UM YANG BENAR-BENAR MATCH,
+       bukan semua UM dengan No. Faktur yang sama. */
+    scanUmMatchMap[f]=picked.map(x=>x.r);
+  }
+
+  /* UM tersisa: benar-benar tidak mendapat pasangan kuat. */
+  for(const u of umRows){
+    if(usedRows.has(u.idx))continue;
+    const um=u.pay;
+    rows.push({
+      kind:'um',
+      status:'orphan',
+      noFaktur:String(u.r.faktur||'').trim(),
+      tanggal:u.r.date||'—',
+      sales:u.sales,
+      toko:u.toko,
+      alamat:u.alamat,
+      jenis:'UM SAJA',
+      pj:0,
+      um,
+      selisih:um,
+      ket:'Uang Masuk tidak mendapat pasangan Penjualan yang cukup kuat.',
+      lines:0,
+      tempo:false,
+      umCount:1,
+      umPaymentRows:um>0?1:0,
+      umTitipRows:String(u.r.status||'').trim().toUpperCase()==='TITIP'?1:0,
+      matchMode:'TIDAK ADA PASANGAN',
+      umSection:u.section,
+      dropSales:u.droppingSales,
+      umDateFirst:u.tanggal,
+      umDateLast:u.tanggal,
+      matchedFaktur:''
+    });
+  }
+
+  return rows;
+}
+</script>
