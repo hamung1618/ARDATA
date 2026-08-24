@@ -2842,6 +2842,13 @@ body.dark-mode #tab-scanum .scanum-card,body.dark-mode #tab-scanum .scanum-table
                 <option value="all">Semua pembayaran</option>
                 <option value="tempo">Tempo saja</option>
                 <option value="cash">Cash saja</option>
+                <option value="cashdropping">Cash Dropping saja</option>
+              </select>
+              <select id="scanumMonth1" onchange="scanUmRender()" title="Bulan penjualan utama">
+                <option value="all">Bulan 1: Semua</option>
+              </select>
+              <select id="scanumMonth2" onchange="scanUmRender()" title="Bulan penjualan kedua (opsional)">
+                <option value="">Bulan 2: —</option>
               </select>
               <span id="scanumInfo" class="scanum-info">Belum dilakukan scan.</span>
               <span class="scanum-title-mini">🔎 Scan Data Uang Masuk × Data Penjualan</span>
@@ -9112,40 +9119,245 @@ function scanUmDateText(v){ const d=scanUmDate(v); return d ? String(d.getDate()
 function scanUmMoney(v){ return 'Rp '+Math.round(scanUmNum(v)).toLocaleString('id-ID'); }
 function scanUmSafe(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function scanUmDays(a,b){ const da=scanUmDate(a), db=scanUmDate(b); return da&&db ? Math.abs(da-db)/86400000 : 999; }
+function scanUmMonthKey(v){ const d=scanUmDate(v); return d ? (d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')) : ''; }
+function scanUmMonthLabel(k){
+  if(!k) return '—';
+  const [y,m]=String(k).split('-').map(Number);
+  const nama=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  return (nama[m-1]||m)+' '+y;
+}
+function scanUmRefreshMonthOptions(){
+  const a=document.getElementById('scanumMonth1'), b=document.getElementById('scanumMonth2');
+  if(!a||!b) return;
+  const keys=[...new Set(scanUmRows.filter(r=>r.kind==='pj').map(r=>scanUmMonthKey(r.tanggal)).filter(Boolean))].sort().reverse();
+  const prev1=a.value, prev2=b.value;
+  a.innerHTML='<option value="all">Bulan 1: Semua</option>'+keys.map(k=>'<option value="'+k+'">Bulan 1: '+scanUmSafe(scanUmMonthLabel(k))+'</option>').join('');
+  b.innerHTML='<option value="">Bulan 2: —</option>'+keys.map(k=>'<option value="'+k+'">Bulan 2: '+scanUmSafe(scanUmMonthLabel(k))+'</option>').join('');
+  if(keys.includes(prev1)) a.value=prev1;
+  if(keys.includes(prev2)) b.value=prev2;
+}
 
 function scanUmBuild(){
-  const pjMap={}; const umMap={};
-  const pjRows=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
-  pjRows.forEach(r=>{
-    const f=scanUmFaktur(r['No.Faktur']); if(!f) return;
-    if(!pjMap[f]) pjMap[f]={noFaktur:String(r['No.Faktur']||'').trim(),sales:r.Sales||'',toko:r.Customer||'',alamat:r.Alamat||'',tanggal:r.Tanggal||'',nominal:0,tempo:false,cash:false,lines:0};
-    const x=pjMap[f]; x.nominal+=scanUmNum(r.Total); x.lines++;
-    const pay=String(r.Pembayaran==null?'':r.Pembayaran).trim().toLowerCase();
-    const isCash=(pay===''||pay==='0'||pay==='cash'||pay==='tunai');
-    if(isCash) x.cash=true; else x.tempo=true;
-  });
-  const ums=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
-  ums.forEach(r=>{
-    const f=scanUmFaktur(r.faktur); if(!f) return;
-    if(!umMap[f]) umMap[f]={noFaktur:String(r.faktur||'').trim(),sales:r.sales||'',toko:r.toko||'',tanggal:r.date||'',bayar:0,tagihan:0,count:0,status:r.status||''};
-    const x=umMap[f];
-    x.bayar += scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf);
-    x.tagihan=Math.max(x.tagihan,scanUmNum(r.tagihan)); x.count++;
-    if(r.date) x.tanggal=r.date;
-    if(String(r.status||'').toUpperCase()==='LUNAS') x.status='LUNAS'; else if(!x.status) x.status=r.status||'';
-  });
-  Object.values(umMap).forEach(x=>{ if(x.bayar<=0 && x.status==='LUNAS' && x.tagihan>0) x.bayar=x.tagihan; });
-  const rows=[]; const seen=new Set(); const TOL=1000;
-  Object.keys(pjMap).forEach(f=>{
-    const p=pjMap[f], u=umMap[f]; seen.add(f); const pj=Math.abs(p.nominal), um=u?Math.abs(u.bayar):0;
-    let status='missing', label='🔴 BELUM DITEMUKAN UM', ket='Belum ditemukan pembayaran di Data Uang Masuk';
-    if(u){ const diff=um-pj; if(Math.abs(diff)<=TOL){status='ok';label='🟢 COCOK';ket='Nominal pembayaran sesuai penjualan';}
-      else if(um>0 && um<pj-TOL){status='partial';label='🟡 SEBAGIAN';ket='Pembayaran belum menutup seluruh nominal penjualan';}
-      else {status='amount';label='⚠️ NOMINAL BERBEDA';ket='Uang masuk lebih besar dari nominal penjualan';}
+  // ================================================================
+  // MESIN REKONSILIASI SCAN UM x PENJUALAN — KONSERVATIF
+  // Prinsip:
+  // 1) Kunci utama tetap No. Faktur yang dinormalisasi.
+  // 2) Total Penjualan = SUM seluruh baris produk pada faktur.
+  // 3) Total UM = SUM seluruh pembayaran nyata (Cash + TF Minyak/Rupa).
+  // 4) Status LUNAS TIDAK pernah menciptakan pembayaran fiktif.
+  // 5) Tagihan hanya informasi pembanding, BUKAN sumber nominal pembayaran.
+  // 6) Pembayaran TITIP tetap dihitung sebagai pembayaran yang tercatat,
+  //    tetapi keterangannya diberi tanda bahwa statusnya masih TITIP.
+  // 7) Pembayaran beberapa kali pada faktur yang sama dijumlahkan.
+  // 8) Tidak ada toleransi selain selisih pembulatan Rp1.000.
+  // ================================================================
+  const pjMap = Object.create(null);
+  const umMap = Object.create(null);
+  const pjRows = (typeof allData !== 'undefined' && Array.isArray(allData)) ? allData : [];
+  const ums = (typeof umAllRows !== 'undefined' && Array.isArray(umAllRows)) ? umAllRows : [];
+  const TOL = 1000;
+
+  // ---------- DATA PENJUALAN ----------
+  pjRows.forEach(r => {
+    const f = scanUmFaktur(r['No.Faktur']);
+    if (!f) return;
+
+    if (!pjMap[f]) {
+      pjMap[f] = {
+        noFaktur: String(r['No.Faktur'] || '').trim(),
+        sales: r.Sales || '',
+        toko: r.Customer || '',
+        alamat: r.Alamat || '',
+        tanggal: r.Tanggal || '',
+        nominal: 0,
+        lines: 0,
+        cash: false,
+        tempo: false
+      };
     }
-    rows.push({kind:'pj',status,noFaktur:p.noFaktur,tanggal:p.tanggal,sales:p.sales,toko:p.toko,jenis:p.tempo?'TEMPO':'CASH',pj,um,selisih:um-pj,ket,lines:p.lines,tempo:p.tempo});
+
+    const x = pjMap[f];
+    x.nominal += scanUmNum(r.Total);
+    x.lines++;
+
+    // Jangan menebak jenis pembayaran selain nilai yang memang jelas CASH.
+    const pay = String(r.Pembayaran == null ? '' : r.Pembayaran).trim().toLowerCase();
+    const isCash = (pay === '' || pay === '0' || pay === 'cash' || pay === 'tunai');
+    if (isCash) x.cash = true;
+    else x.tempo = true;
   });
-  Object.keys(umMap).forEach(f=>{ if(seen.has(f)) return; const u=umMap[f]; rows.push({kind:'um',status:'orphan',noFaktur:u.noFaktur,tanggal:'—',sales:u.sales,toko:u.toko,jenis:'UM SAJA',pj:0,um:u.bayar,selisih:u.bayar,ket:'Ada di Uang Masuk tetapi No. Faktur tidak ditemukan di Data Penjualan',lines:0,tempo:false}); });
+
+  // ---------- DATA UANG MASUK ----------
+  ums.forEach(r => {
+    const f = scanUmFaktur(r.faktur);
+    if (!f) return;
+
+    if (!umMap[f]) {
+      umMap[f] = {
+        noFaktur: String(r.faktur || '').trim(),
+        sales: r.sales || '',
+        toko: r.toko || '',
+        alamat: r.alamat || '',
+        tanggalPertama: r.date || '',
+        tanggalTerakhir: r.date || '',
+        bayar: 0,
+        tagihan: 0,
+        count: 0,
+        realPaymentRows: 0,
+        titipRows: 0,
+        lunasRows: 0,
+        hasTitip: false,
+        hasNonZeroPayment: false,
+        statuses: [],
+        sections: Object.create(null),
+        dropSales: []
+      };
+    }
+
+    const x = umMap[f];
+    const bayar =
+      scanUmNum(r.minyakCash) +
+      scanUmNum(r.rupaCash) +
+      scanUmNum(r.minyakTf) +
+      scanUmNum(r.rupaTf);
+
+    x.bayar += bayar;
+    x.count++;
+    if (bayar > 0) {
+      x.realPaymentRows++;
+      x.hasNonZeroPayment = true;
+    }
+
+    // Tagihan hanya informasi. Ambil nilai terbesar karena satu faktur
+    // dapat muncul beberapa kali di histori UM.
+    x.tagihan = Math.max(x.tagihan, scanUmNum(r.tagihan));
+
+    if (r.date) {
+      if (!x.tanggalPertama) x.tanggalPertama = r.date;
+      x.tanggalTerakhir = r.date;
+    }
+
+    const st = String(r.status || '').trim().toUpperCase();
+    if (st === 'TITIP') {
+      x.titipRows++;
+      x.hasTitip = true;
+    }
+    if (st === 'LUNAS') x.lunasRows++;
+    if (st) x.statuses.push(st);
+    const sec = String(r.section || '').trim().toUpperCase();
+    if (sec) x.sections[sec] = (x.sections[sec] || 0) + 1;
+    if (sec === 'CASH DROPPING') {
+      const ds = String(r.sales || '').trim();
+      if (ds && ds !== '—' && !x.dropSales.includes(ds)) x.dropSales.push(ds);
+    }
+  });
+
+  const rows = [];
+  const seen = new Set();
+
+  // ---------- REKONSILIASI PENJUALAN -> UANG MASUK ----------
+  Object.keys(pjMap).forEach(f => {
+    const p = pjMap[f];
+    const u = umMap[f];
+    seen.add(f);
+
+    const pj = Math.abs(scanUmNum(p.nominal));
+    const um = u ? Math.abs(scanUmNum(u.bayar)) : 0;
+    const selisih = um - pj;
+
+    let status = 'missing';
+    let ket = 'Belum ditemukan pembayaran di Data Uang Masuk';
+
+    if (u) {
+      if (um <= TOL) {
+        // Tidak boleh memakai status LUNAS untuk menciptakan pembayaran.
+        status = 'missing';
+        ket = u.lunasRows > 0
+          ? 'Ada baris Uang Masuk berstatus LUNAS, tetapi nominal pembayaran tercatat Rp 0 — tidak dianggap sebagai pembayaran.'
+          : 'No. Faktur ditemukan di Uang Masuk, tetapi belum ada nominal pembayaran yang tercatat.';
+      } else if (Math.abs(selisih) <= TOL) {
+        status = 'ok';
+        if (u.hasTitip) {
+          ket = 'Nominal pembayaran sesuai penjualan, tetapi terdapat pembayaran berstatus TITIP.';
+        } else {
+          ket = 'Total seluruh pembayaran sesuai dengan nominal penjualan.';
+        }
+      } else if (um < pj - TOL) {
+        status = 'partial';
+        ket = 'Pembayaran baru sebagian. Sisa ' + scanUmMoney(Math.max(0, pj - um)) + '.';
+        if (u.hasTitip) ket += ' Terdapat pembayaran berstatus TITIP.';
+      } else {
+        status = 'amount';
+        ket = 'Total pembayaran lebih besar dari nominal penjualan sebesar ' + scanUmMoney(Math.abs(selisih)) + '.';
+        if (u.hasTitip) ket += ' Terdapat pembayaran berstatus TITIP.';
+      }
+    }
+
+    const isCashDropping = !!(u && u.sections && u.sections['CASH DROPPING']);
+    const dropSales = u && u.dropSales ? u.dropSales.join(', ') : '';
+    if (isCashDropping) {
+      const label = dropSales ? 'CASH DROPPING · '+dropSales : 'CASH DROPPING';
+      ket = ket ? ket + ' | ' + label : label;
+    }
+
+    rows.push({
+      kind: 'pj',
+      status,
+      noFaktur: p.noFaktur,
+      tanggal: p.tanggal,
+      sales: p.sales,
+      toko: p.toko,
+      jenis: p.tempo ? 'TEMPO' : 'CASH',
+      pj,
+      um,
+      selisih,
+      ket,
+      lines: p.lines,
+      tempo: p.tempo,
+      umCount: u ? u.count : 0,
+      umPaymentRows: u ? u.realPaymentRows : 0,
+      umTitipRows: u ? u.titipRows : 0,
+      matchMode: u ? 'NO FAKTUR' : 'TIDAK DITEMUKAN',
+      umSection: isCashDropping ? 'CASH DROPPING' : (u && Object.keys(u.sections||{}).find(k=>k==='PIUTANG TEMPO') || ''),
+      dropSales,
+      umDateFirst: u ? u.tanggalPertama : '',
+      umDateLast: u ? u.tanggalTerakhir : ''
+    });
+  });
+
+  // ---------- UANG MASUK TANPA PASANGAN PENJUALAN ----------
+  Object.keys(umMap).forEach(f => {
+    if (seen.has(f)) return;
+    const u = umMap[f];
+    const um = Math.abs(scanUmNum(u.bayar));
+
+    rows.push({
+      kind: 'um',
+      status: 'orphan',
+      noFaktur: u.noFaktur,
+      tanggal: u.tanggalPertama || '—',
+      sales: u.sales,
+      toko: u.toko,
+      jenis: 'UM SAJA',
+      pj: 0,
+      um,
+      selisih: um,
+      ket: um > TOL
+        ? 'Ada pembayaran di Uang Masuk tetapi No. Faktur tidak ditemukan di Data Penjualan. Periksa kemungkinan salah input No. Faktur.'
+        : 'Ada baris Uang Masuk tetapi belum ada nominal pembayaran yang tercatat dan No. Faktur tidak ditemukan di Data Penjualan.',
+      lines: 0,
+      tempo: false,
+      umCount: u.count,
+      umPaymentRows: u.realPaymentRows,
+      umTitipRows: u.titipRows,
+      matchMode: 'TIDAK ADA DI PENJUALAN',
+      umSection: u.sections && u.sections['CASH DROPPING'] ? 'CASH DROPPING' : 'PIUTANG TEMPO',
+      dropSales: u.dropSales ? u.dropSales.join(', ') : '',
+      umDateFirst: u.tanggalPertama,
+      umDateLast: u.tanggalTerakhir
+    });
+  });
+
   return rows;
 }
 function scanUmPenjualan(){
@@ -9156,19 +9368,31 @@ function scanUmPenjualan(){
   document.getElementById('scanCAmount').textContent=scanUmRows.filter(r=>r.status==='amount').length.toLocaleString('id-ID');
   document.getElementById('scanCMissing').textContent=scanUmRows.filter(r=>r.status==='missing' && r.tempo).length.toLocaleString('id-ID');
   document.getElementById('scanCOrphan').textContent=scanUmRows.filter(r=>r.status==='orphan').length.toLocaleString('id-ID');
+  scanUmRefreshMonthOptions();
   scanUmRender();
 }
 function scanUmRender(){
   const tb=document.getElementById('scanumTbody'); if(!tb) return;
   if(!scanUmDone){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Klik <b>Scan Sekarang</b> untuk memeriksa data.</td></tr>';return;}
   const q=(document.getElementById('scanumSearch')?.value||'').toLowerCase().trim(); const f=document.getElementById('scanumFilter')?.value||'all'; const typ=document.getElementById('scanumType')?.value||'all';
-  let rows=scanUmRows.filter(r=>(f==='all'||r.status===f)&&(typ==='all'||(typ==='tempo'&&r.tempo)||(typ==='cash'&&r.kind==='pj'&&!r.tempo)));
-  if(q) rows=rows.filter(r=>(r.noFaktur+' '+r.sales+' '+r.toko).toLowerCase().includes(q));
-  const info=document.getElementById('scanumInfo'); if(info) info.textContent='Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Scan hanya membaca data';
+  const m1=document.getElementById('scanumMonth1')?.value||'all'; const m2=document.getElementById('scanumMonth2')?.value||'';
+  const months=m1==='all' ? null : new Set([m1, ...(m2 ? [m2] : [])]);
+  let rows=scanUmRows.filter(r=>{
+    const typeOk=typ==='all'||(typ==='tempo'&&r.tempo)||(typ==='cash'&&r.kind==='pj'&&!r.tempo)||(typ==='cashdropping'&&r.umSection==='CASH DROPPING');
+    const monthOk=!months || months.has(scanUmMonthKey(r.tanggal));
+    return (f==='all'||r.status===f) && typeOk && monthOk;
+  });
+  if(q) rows=rows.filter(r=>(r.noFaktur+' '+r.sales+' '+r.toko+' '+(r.dropSales||'')+' '+(r.umSection||'')).toLowerCase().includes(q));
+  const info=document.getElementById('scanumInfo'); if(info) {
+    const mtxt=months ? [...months].map(scanUmMonthLabel).join(' + ') : 'semua bulan';
+    info.textContent='Penjualan: '+mtxt+' · Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Pembayaran UM tetap dibaca lintas bulan (penting untuk TEMPO akhir bulan).';
+  }
   if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Tidak ada hasil untuk filter ini.</td></tr>';return;}
   const max=1000; const shown=rows.slice(0,max); let html='';
   shown.forEach((r,i)=>{ const badge=r.status==='ok'?'ok':r.status==='partial'?'partial':r.status==='amount'?'amount':r.status==='missing'?'missing':'orphan'; const sign=r.selisih>0?'+':''; const faktur=scanUmSafe(r.noFaktur);
-    html+='<tr><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(r.status==='ok'?'🟢 COCOK':r.status==='partial'?'🟡 SEBAGIAN':r.status==='amount'?'⚠️ NOMINAL BERBEDA':r.status==='missing'?'🔴 BELUM DITEMUKAN UM':'🔵 UM TIDAK ADA DI PJ')+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+faktur.replace(/'/g,"\\'")+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+scanUmSafe(r.sales||'—')+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+scanUmSafe(r.jenis)+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
+    const salesLabel = r.umSection==='CASH DROPPING' && r.dropSales ? scanUmSafe(r.sales||'—')+' <span class="scanum-muted">('+scanUmSafe(r.dropSales)+')</span>' : scanUmSafe(r.sales||'—');
+    const jenisLabel = r.umSection==='CASH DROPPING' ? 'CASH DROPPING' : scanUmSafe(r.jenis);
+    html+='<tr><td>'+(i+1)+'</td><td><span class="scanum-badge '+badge+'">'+scanUmSafe(r.status==='ok'?'🟢 COCOK':r.status==='partial'?'🟡 SEBAGIAN':r.status==='amount'?'⚠️ NOMINAL BERBEDA':r.status==='missing'?'🔴 BELUM DITEMUKAN UM':'🔵 UM TIDAK ADA DI PJ')+'</span></td><td><a href="javascript:void(0)" class="scanum-link" onclick="scanUmOpenFaktur(\''+faktur.replace(/'/g,"\\'")+'\')">'+faktur+'</a></td><td>'+scanUmSafe(scanUmDateText(r.tanggal))+'</td><td>'+salesLabel+'</td><td>'+scanUmSafe(r.toko||'—')+'</td><td>'+jenisLabel+'</td><td class="num">'+scanUmMoney(r.pj)+'</td><td class="num">'+(r.um?scanUmMoney(r.um):'—')+'</td><td class="num">'+(r.selisih?sign+scanUmMoney(Math.abs(r.selisih)):'Rp 0')+'</td><td>'+scanUmSafe(r.ket)+'</td></tr>';
   });
   if(rows.length>max) html+='<tr><td colspan="11" class="scanum-empty">Menampilkan '+max.toLocaleString('id-ID')+' dari '+rows.length.toLocaleString('id-ID')+' hasil. Gunakan pencarian/filter untuk mempersempit.</td></tr>';
   tb.innerHTML=html;
