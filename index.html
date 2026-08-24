@@ -2549,8 +2549,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
   <div class="controls">
     <div class="status-pills">
       <button class="tabbtn" data-cat="semua">Semua</button>
-      <button class="tabbtn active" data-cat="belum">Belum Lunas</button>
-      <button class="tabbtn" data-cat="titip">Titip</button>
+      <button class="tabbtn active" data-cat="belum">⚠ BELUM BAYAR</button>
       <button class="tabbtn" data-cat="lunas">Sudah Lunas</button>
     </div>
     <div class="filter-chip">
@@ -4778,6 +4777,9 @@ function applyStateFromParsed(parsed){
   updateUploadStatus();
   rebuildSumberFilter();
   rebuildSalesFilter();
+  // Setelah data hasil hydrate/sinkron masuk, langsung tampilkan AR.
+  // Ini mencegah kondisi "kosong" sampai user pindah tab.
+  if (typeof render === 'function') render();
 }
 
 function saveStateToStorage(){
@@ -5077,7 +5079,7 @@ document.getElementById('fileB').addEventListener('change', function(e){
 })();
 
 // ---------- Filter state ----------
-let activeCat = 'semua';
+let activeCat = 'belum';
 document.querySelectorAll('.tabbtn[data-cat]').forEach(btn => {
   btn.addEventListener('click', () => {
     document.querySelectorAll('.tabbtn[data-cat]').forEach(b=>b.classList.remove('active'));
@@ -5097,7 +5099,7 @@ document.getElementById('tbody').addEventListener('change', function(e){
 });
 
 document.getElementById('btnCetak').addEventListener('click', () => {
-  const catLabel = {semua:'Semua', belum:'Belum Lunas', titip:'Titip', lunas:'Sudah Lunas'}[activeCat];
+  const catLabel = {semua:'Semua', belum:'Belum Bayar', lunas:'Sudah Lunas'}[activeCat];
   const sumberVal = document.getElementById('sumberFilter').value;
   const salesVal = document.getElementById('salesFilter').value;
   const q = document.getElementById('searchBox').value.trim();
@@ -5321,12 +5323,42 @@ function arOnScroll() {
   });
 }
 
+
+function sortArBelumBayarByOverdue(arr){
+  return arr.slice().sort((a, b) => {
+    const da = umurPiutangHari(a.tglJatuhTempo);
+    const db = umurPiutangHari(b.tglJatuhTempo);
+
+    // Faktur dengan overdue terbesar selalu paling atas.
+    // Jatuh tempo yang belum lewat (nilai negatif) otomatis berada di bawah.
+    const va = (da === null ? -Infinity : da);
+    const vb = (db === null ? -Infinity : db);
+    if (va !== vb) return vb - va;
+
+    // Jika umur sama, jatuh tempo yang lebih lama didahulukan.
+    const dta = excelSerialToDate(a.tglJatuhTempo);
+    const dtb = excelSerialToDate(b.tglJatuhTempo);
+    const ta = dta ? dta.getTime() : Infinity;
+    const tb = dtb ? dtb.getTime() : Infinity;
+    if (ta !== tb) return ta - tb;
+
+    // Tie-breaker stabil.
+    return String(a.noFaktur || '').localeCompare(String(b.noFaktur || ''));
+  });
+}
+
 function render(){
     const rows = allRows();
 
   // filter
   let filtered = rows;
-  if (activeCat !== 'semua') filtered = filtered.filter(r=>r.kategori===activeCat);
+  if (activeCat === 'belum') {
+    // BELUM BAYAR = semua piutang yang belum LUNAS,
+    // termasuk status TITIP / pembayaran sebagian.
+    filtered = filtered.filter(r => r.kategori !== 'lunas');
+  } else if (activeCat === 'lunas') {
+    filtered = filtered.filter(r => r.kategori === 'lunas');
+  }
   const sumberVal = document.getElementById('sumberFilter').value;
   if (sumberVal !== 'semua') filtered = filtered.filter(r=>r.sumber===sumberVal);
   const salesVal = document.getElementById('salesFilter').value;
@@ -5337,6 +5369,11 @@ function render(){
     String(r.sales).toLowerCase().includes(q) ||
     String(r.noFaktur).toLowerCase().includes(q)
   );
+
+  // Mode BELUM BAYAR selalu menempatkan overdue paling lama di paling atas.
+  if (activeCat === 'belum') {
+    filtered = sortArBelumBayarByOverdue(filtered);
+  }
 
   const tbody = document.getElementById('tbody');
   const emptyState = document.getElementById('emptyState');
@@ -5356,7 +5393,7 @@ function render(){
   emptyState.style.display = 'none';
 
   const tableEl = document.getElementById('dataTable');
-  if (activeCat === 'belum' || activeCat === 'titip') tableEl.classList.add('show-umur');
+  if (activeCat === 'belum') tableEl.classList.add('show-umur');
   else tableEl.classList.remove('show-umur');
   if (activeCat === 'lunas') tableEl.classList.add('show-lunas');
   else tableEl.classList.remove('show-lunas');
@@ -5631,22 +5668,23 @@ function exportArToExcel(){
       alert('Belum ada data AR untuk diexport.');
       return;
     }
-    const defaultChoice = ({semua:'1', belum:'2', titip:'3', lunas:'4'})[typeof activeCat !== 'undefined' ? activeCat : 'semua'] || '1';
+    const defaultChoice = ({semua:'1', belum:'2', lunas:'3'})[typeof activeCat !== 'undefined' ? activeCat : 'belum'] || '2';
     const opt = prompt(
       'Pilih data yang diexport:\n\n' +
       '1 = Semua data\n' +
-      '2 = Belum Lunas\n' +
-      '3 = Titip\n' +
-      '4 = Sudah Lunas\n\n' +
-      'Ketik angka 1 – 4:',
+      '2 = Belum Bayar (Belum Lunas + Titip)\n' +
+      '3 = Sudah Lunas\n\n' +
+      'Ketik angka 1 – 3:',
       defaultChoice
     );
     if (opt === null) return; // batal
-    const catMap = { '1': 'semua', '2': 'belum', '3': 'titip', '4': 'lunas' };
-    const cat = catMap[String(opt).trim()] || 'semua';
-    const catLabel = { semua: 'Semua', belum: 'Belum_Lunas', titip: 'Titip', lunas: 'Sudah_Lunas' }[cat];
-    if (cat !== 'semua') {
-      rows = rows.filter(r => r.kategori === cat);
+    const catMap = { '1': 'semua', '2': 'belum', '3': 'lunas' };
+    const cat = catMap[String(opt).trim()] || 'belum';
+    const catLabel = { semua: 'Semua', belum: 'Belum_Bayar', lunas: 'Sudah_Lunas' }[cat];
+    if (cat === 'belum') {
+      rows = rows.filter(r => r.kategori !== 'lunas');
+    } else if (cat === 'lunas') {
+      rows = rows.filter(r => r.kategori === 'lunas');
     }
     if (rows.length === 0){
       alert('Tidak ada data untuk kategori: ' + catLabel.replace('_', ' '));
@@ -8779,7 +8817,7 @@ function anoExportCSV() {
         }
 
         // ===== PWA: register Service Worker (diperlukan agar ikon Install bilah browser muncul) =====
-        window.__UM_FIX_VERSION = 'UM-FIX-v5-20260808';
+        window.__UM_FIX_VERSION = 'UM-FIX-v5-20260808-AR-BELUMBAYAR-v1';
         console.info('[UM]', window.__UM_FIX_VERSION);
         if ('serviceWorker' in navigator && isSecurePwaContext()) {
             window.addEventListener('load', () => {
@@ -8827,7 +8865,13 @@ function anoExportCSV() {
         }
       } catch (e) { console.warn('boot PJ sync', e); }
       try {
+        // Default saat pertama membuka aplikasi: langsung BELUM BAYAR.
+        if (typeof activeCat !== 'undefined') activeCat = 'belum';
+        document.querySelectorAll('.tabbtn[data-cat]').forEach(b => {
+          b.classList.toggle('active', b.dataset.cat === 'belum');
+        });
         if (typeof loadStateFromStorage === 'function') loadStateFromStorage();
+        if (typeof render === 'function') render();
       } catch (e) { console.warn('boot AR', e); }
       try {
         if (typeof umLoadFromStorage === 'function') umLoadFromStorage();
