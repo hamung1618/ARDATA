@@ -4670,37 +4670,28 @@ body.dark-mode .scanum-detail-actions{border-top-color:#24384f}
                     if (typeof umAllRows !== 'undefined' && umAllRows.length && typeof umDoSearch === 'function') umDoSearch();
                 } catch(e) {}
             }
-            // Scan UM × Penjualan: pastikan data Uang Masuk dari storage sudah dipulihkan,
-            // lalu langsung lakukan scan agar tab tidak tampil kosong. Read-only.
+            // SCAN UM × PENJUALAN dibuat LAZY.
+            // Membuka tab TIDAK boleh menjalankan mesin scan, karena scan dapat
+            // memproses ribuan baris dan membuat UI tersendat. Scan hanya berjalan
+            // saat user menekan "Scan Sekarang".
             if (name === 'scanum') {
                 try {
-                    if (typeof umEnsureUploadWired === 'function') umEnsureUploadWired();
-                    if (typeof umAllRows !== 'undefined' && (!umAllRows || !umAllRows.length) && typeof umLoadFromStorage === 'function') {
-                        umLoadFromStorage();
+                    const info = document.getElementById('scanumInfo');
+                    if (info) {
+                        info.textContent = scanUmDone
+                            ? 'Hasil scan tersedia · klik Scan Sekarang untuk memperbarui'
+                            : 'Belum dilakukan scan · klik Menu → Scan Sekarang';
                     }
-                    // Panel tampil SEKETIKA; pemindaian ditunda satu tick + ditambah
-                    // indikator "Memindai…", jadi klik tab tidak membekukan UI.
-                    // (IndexedDB bersifat async: bila percobaan pertama masih kosong,
-                    // ulangi 2x lagi — build kini sangat cepat jadi aman.)
-                    if (typeof scanUmPenjualan === 'function') {
-                        // Bila sudah pernah discan, tampilkan hasil lama seketika,
-                        // lalu bangun ulang di background agar selalu segar.
-                        if (scanUmDone && typeof scanUmRender === 'function') {
-                            try { scanUmRender(); } catch(_) {}
-                        }
-                        if (!scanUmDone) {
-                            const info = document.getElementById('scanumInfo');
-                            if (info) info.textContent = 'Memindai…  (tabel akan terisi otomatis)';
-                        }
-                        setTimeout(function(){
-                            try { scanUmPenjualan(); } catch(_) {}
-                            if (!scanUmRows || !scanUmRows.length) {
-                                setTimeout(function(){ try { if(!scanUmRows || !scanUmRows.length) scanUmPenjualan(); } catch(_) {} }, 400);
-                                setTimeout(function(){ try { if(!scanUmRows || !scanUmRows.length) scanUmPenjualan(); } catch(_) {} }, 1200);
-                            }
-                        }, 30);
+                    const tb = document.getElementById('scanumTbody');
+                    if (tb && !scanUmDone) {
+                        tb.innerHTML = '<tr><td colspan="11" class="scanum-empty">Klik <b>Menu → Scan Sekarang</b> untuk memeriksa Data Uang Masuk × Data Penjualan.</td></tr>';
                     }
-                } catch(e) { console.warn('scanum init', e); }
+                    if (scanUmDone && typeof scanUmRender === 'function') {
+                        try { scanUmRender(); } catch(_) {}
+                    }
+                } catch(e) {
+                    console.warn('scanum init', e);
+                }
             }
         }
 
@@ -9445,6 +9436,31 @@ function scanUmUpdateCards(rows){
   document.getElementById('scanCMissing').textContent=fmt(rows.filter(r=>r.status==='missing' && r.tempo).length);
   document.getElementById('scanCOrphan').textContent=fmt(rows.filter(r=>r.status==='orphan').length);
 }
+
+// SCAN UM: default filter bulan terkini.
+// Hanya mengatur filter; TIDAK menjalankan scan otomatis.
+(function scanUmDefaultBulanTerkini(){
+  try{
+    const el =
+      document.getElementById('scanumFilterBulan') ||
+      document.getElementById('scanUmFilterBulan') ||
+      document.querySelector('#tab-scanum select[data-filter="bulan"]');
+    if(!el) return;
+
+    const mm = String(new Date().getMonth()+1).padStart(2,'0');
+    const opt = [...el.options].find(o =>
+      String(o.value).padStart(2,'0') === mm
+    );
+    if(opt) el.value = opt.value;
+
+    // Jika filter bulan punya state tersendiri, trigger change agar
+    // state internal ikut menggunakan bulan terkini.
+    el.dispatchEvent(new Event('change', {bubbles:true}));
+  }catch(e){
+    console.warn('scanUm default bulan terkini:', e);
+  }
+})();
+
 function scanUmPenjualan(){
   const infoEl=document.getElementById('scanumInfo');
   if(infoEl) infoEl.textContent='Memindai…';
@@ -9725,7 +9741,10 @@ function scanUmCancelTransaction(no){
 }
 
 function scanUmExportExcel(){
-  if(!scanUmDone){ scanUmRows=scanUmBuild(); scanUmDone=true; scanUmRefreshMonthOptions(); }
+  if(!scanUmDone){
+    alert('Lakukan Scan Sekarang terlebih dahulu.');
+    return;
+  }
   if(typeof XLSX==='undefined'){alert('Library Excel belum termuat.');return;}
   const rows=scanUmRows.map(r=>({'Status':r.status,'No Faktur':r.noFaktur,'Tanggal PJ':r.tanggal,'Sales':r.sales,'Toko':r.toko,'Jenis':r.jenis,'Nominal Penjualan':r.pj,'Uang Masuk':r.um,'Selisih':r.selisih,'Keterangan':r.ket}));
   const wb=XLSX.utils.book_new(); XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(rows),'Scan UM x PJ'); XLSX.writeFile(wb,'Scan_Uang_Masuk_vs_Penjualan_'+new Date().toISOString().slice(0,10)+'.xlsx');
