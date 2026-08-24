@@ -958,6 +958,25 @@
             .result-info { margin-left: 0; text-align: center; }
             .table-header { flex-direction: column; text-align: center; }
             th, td { padding: 8px 6px; font-size: 0.8rem; }
+
+            /* Kartu menu tab dibuat lebih kecil & bisa digeser di HP */
+            .tab-nav {
+                display: flex;
+                flex-wrap: nowrap;
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                gap: 8px;
+                padding-bottom: 4px;
+                scrollbar-width: none;
+            }
+            .tab-nav::-webkit-scrollbar { display: none; }
+            .tab-btn {
+                flex: 0 0 auto;
+                padding: 8px 12px;
+                font-size: 0.72rem;
+                white-space: nowrap;
+                border-radius: 10px;
+            }
         }
 
         /* Print styles */
