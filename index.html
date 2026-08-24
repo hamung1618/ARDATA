@@ -5339,7 +5339,7 @@ function render(){
   emptyState.style.display = 'none';
 
   const tableEl = document.getElementById('dataTable');
-  if (activeCat === 'belum') tableEl.classList.add('show-umur');
+  if (activeCat === 'belum' || activeCat === 'titip') tableEl.classList.add('show-umur');
   else tableEl.classList.remove('show-umur');
   if (activeCat === 'lunas') tableEl.classList.add('show-lunas');
   else tableEl.classList.remove('show-lunas');
