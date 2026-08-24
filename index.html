@@ -1579,12 +1579,12 @@ body.dark-mode .slot-choice label:has(input:checked) {
   .tgh-headinfo { border-collapse: collapse; margin-bottom: 6px; font-size: 12px; }
   .tgh-headinfo td { padding: 1px 4px; }
   .tgh-headinfo .tgh-lbl { font-weight: 700; white-space: nowrap; }
-  .tgh-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px; table-layout: fixed; }
-  .tgh-table th, .tgh-table td { border: 1px solid #333; padding: 3px 4px; word-wrap: break-word; overflow-wrap: break-word; }
+  .tgh-table { width: 100%; border-collapse: collapse; font-size: 10px; margin-bottom: 10px; }
+  .tgh-table th, .tgh-table td { border: 1px solid #333; padding: 3px 4px; }
   .tgh-table thead th { background: #dbe4ee; text-align: center; font-weight: 700; }
   .tgh-table .tgh-c { text-align: center; }
   .tgh-table .tgh-r { text-align: right; }
-  .tgh-table .tgh-pay { }
+  .tgh-table .tgh-pay { width: 60px; }
   .tgh-total-row td { background: #f1f5f9; }
   .tgh-footinfo { width: 100%; border-collapse: collapse; font-size: 11px; margin-bottom: 22px; }
   .tgh-footinfo td { padding: 2px 4px; vertical-align: top; }
@@ -2152,38 +2152,13 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 </script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx.full.min(1).js.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx.full(1).min.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx(1).full.download"></script><script src="./Bank Data Penjualan &amp; AR Minyak_Rupa_files/xlsx(1).download"></script>
 </head>
 <body class="">
-<div class="modal-overlay" id="tagihan-choice-modal">
-    <div class="modal-box" style="max-width:380px;">
-        <h3>🧾 Cetak Tagihan Terpilih</h3>
-        <p style="font-size:0.85rem;color:#555;margin-bottom:16px;">Pilih cara mengeluarkan tagihan:</p>
-        <div style="display:flex;flex-direction:column;gap:10px;">
-            <button type="button" class="btn btn-success" style="width:100%;" onclick="closeTagihanChoiceModal(); exportTagihanExcel();">📥 Download Excel (bisa diedit)</button>
-            <button type="button" class="btn btn-secondary" style="width:100%;" onclick="closeTagihanChoiceModal(); printTagihanTerpilih();">🖨️ Langsung Print</button>
-            <button type="button" class="btn" style="width:100%;background:#fff;" onclick="closeTagihanChoiceModal();">Batal</button>
-        </div>
-    </div>
-</div>
 <div id="tagihanPrintArea" style="display:none;">
-
   <div class="tgh-block">
     <table class="tgh-headinfo">
       <tbody><tr><td class="tgh-lbl">SALESMAN/DROPING</td><td>: RAJU</td></tr>
       <tr><td class="tgh-lbl">TANGGAL</td><td>: 11/08/2026</td></tr>
     </tbody></table>
     <table class="tgh-table">
-      <colgroup>
-        <col style="width:7.3%">
-        <col style="width:10.7%">
-        <col style="width:13.8%">
-        <col style="width:15.7%">
-        <col style="width:7.0%">
-        <col style="width:7.4%">
-        <col style="width:7.9%">
-        <col style="width:7.4%">
-        <col style="width:8.7%">
-        <col style="width:6.9%">
-        <col style="width:7.2%">
-      </colgroup>
       <thead>
         <tr>
           <th rowspan="2">NO</th>
@@ -2412,7 +2387,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                     <div class="dropdown">
                         <button class="btn btn-secondary" onclick="toggleMenu(&#39;column-menu&#39;)">☑ Kolom ▾</button>
                         <div class="dropdown-menu" id="column-menu">
-                            <div class="column-menu-list" id="column-menu-list"><label for="col-chk-Tanggal"><input type="checkbox" id="col-chk-Tanggal" checked="" onchange="toggleColumnVisibility(&#39;Tanggal&#39;, this.checked)"> Tanggal</label><label for="col-chk-NoFaktur"><input type="checkbox" id="col-chk-NoFaktur" checked="" onchange="toggleColumnVisibility(&#39;No.Faktur&#39;, this.checked)"> No.Faktur</label><label for="col-chk-Produk"><input type="checkbox" id="col-chk-Produk" checked="" onchange="toggleColumnVisibility(&#39;Produk&#39;, this.checked)"> Produk</label><label for="col-chk-Jumlah"><input type="checkbox" id="col-chk-Jumlah" checked="" onchange="toggleColumnVisibility(&#39;Jumlah&#39;, this.checked)"> Jumlah</label><label for="col-chk-Satuan"><input type="checkbox" id="col-chk-Satuan" onchange="toggleColumnVisibility(&#39;Satuan&#39;, this.checked)"> Satuan</label><label for="col-chk-HargaJual"><input type="checkbox" id="col-chk-HargaJual" onchange="toggleColumnVisibility(&#39;Harga Jual&#39;, this.checked)"> Harga Jual</label><label for="col-chk-Disc"><input type="checkbox" id="col-chk-Disc" onchange="toggleColumnVisibility(&#39;Disc&#39;, this.checked)"> Disc</label><label for="col-chk-Total"><input type="checkbox" id="col-chk-Total" checked="" onchange="toggleColumnVisibility(&#39;Total&#39;, this.checked)"> Total</label><label for="col-chk-Sales"><input type="checkbox" id="col-chk-Sales" checked="" onchange="toggleColumnVisibility(&#39;Sales&#39;, this.checked)"> Sales</label><label for="col-chk-Customer"><input type="checkbox" id="col-chk-Customer" checked="" onchange="toggleColumnVisibility(&#39;Customer&#39;, this.checked)"> Customer</label><label for="col-chk-Alamat"><input type="checkbox" id="col-chk-Alamat" onchange="toggleColumnVisibility(&#39;Alamat&#39;, this.checked)"> Alamat</label><label for="col-chk-Pembayaran"><input type="checkbox" id="col-chk-Pembayaran" checked="" onchange="toggleColumnVisibility(&#39;Pembayaran&#39;, this.checked)"> Pembayaran</label><label for="col-chk-HargaBeli"><input type="checkbox" id="col-chk-HargaBeli" onchange="toggleColumnVisibility(&#39;Harga Beli&#39;, this.checked)"> Harga Beli</label><label for="col-chk-Profit"><input type="checkbox" id="col-chk-Profit" onchange="toggleColumnVisibility(&#39;Profit&#39;, this.checked)"> Profit</label></div>
+                            <div class="column-menu-list" id="column-menu-list"><label for="col-chk-Tanggal"><input type="checkbox" id="col-chk-Tanggal" checked="" onchange="toggleColumnVisibility(&#39;Tanggal&#39;, this.checked)"> Tanggal</label><label for="col-chk-NoFaktur"><input type="checkbox" id="col-chk-NoFaktur" checked="" onchange="toggleColumnVisibility(&#39;No.Faktur&#39;, this.checked)"> No.Faktur</label><label for="col-chk-Produk"><input type="checkbox" id="col-chk-Produk" checked="" onchange="toggleColumnVisibility(&#39;Produk&#39;, this.checked)"> Produk</label><label for="col-chk-Jumlah"><input type="checkbox" id="col-chk-Jumlah" checked="" onchange="toggleColumnVisibility(&#39;Jumlah&#39;, this.checked)"> Jumlah</label><label for="col-chk-Satuan"><input type="checkbox" id="col-chk-Satuan" onchange="toggleColumnVisibility(&#39;Satuan&#39;, this.checked)"> Satuan</label><label for="col-chk-HargaJual"><input type="checkbox" id="col-chk-HargaJual" onchange="toggleColumnVisibility(&#39;Harga Jual&#39;, this.checked)"> Harga Jual</label><label for="col-chk-Disc"><input type="checkbox" id="col-chk-Disc" onchange="toggleColumnVisibility(&#39;Disc&#39;, this.checked)"> Disc</label><label for="col-chk-Total"><input type="checkbox" id="col-chk-Total" checked="" onchange="toggleColumnVisibility(&#39;Total&#39;, this.checked)"> Total</label><label for="col-chk-NominalFaktur"><input type="checkbox" id="col-chk-NominalFaktur" checked="" onchange="toggleColumnVisibility(&#39;Nominal Faktur&#39;, this.checked)"> Nominal Faktur</label><label for="col-chk-Sales"><input type="checkbox" id="col-chk-Sales" checked="" onchange="toggleColumnVisibility(&#39;Sales&#39;, this.checked)"> Sales</label><label for="col-chk-Customer"><input type="checkbox" id="col-chk-Customer" checked="" onchange="toggleColumnVisibility(&#39;Customer&#39;, this.checked)"> Customer</label><label for="col-chk-Alamat"><input type="checkbox" id="col-chk-Alamat" onchange="toggleColumnVisibility(&#39;Alamat&#39;, this.checked)"> Alamat</label><label for="col-chk-Pembayaran"><input type="checkbox" id="col-chk-Pembayaran" checked="" onchange="toggleColumnVisibility(&#39;Pembayaran&#39;, this.checked)"> Pembayaran</label><label for="col-chk-HargaBeli"><input type="checkbox" id="col-chk-HargaBeli" onchange="toggleColumnVisibility(&#39;Harga Beli&#39;, this.checked)"> Harga Beli</label><label for="col-chk-Profit"><input type="checkbox" id="col-chk-Profit" onchange="toggleColumnVisibility(&#39;Profit&#39;, this.checked)"> Profit</label></div>
                             <div class="column-menu-footer">
                                 <button type="button" onclick="setAllColumns(true)">Tampilkan Semua</button>
                                 <button type="button" onclick="setAllColumns(false)">Sembunyikan Semua</button>
@@ -2624,7 +2599,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
   <div class="count-note" id="countNote">Belum ada data. Upload file atau input manual lewat menu untuk mulai.</div>
   <div id="arSelBar" style="display: flex; align-items: center; gap: 10px; margin: 6px 0px 2px; padding: 8px 12px; background: rgb(255, 247, 237); border: 1px solid rgb(253, 186, 116); border-radius: 8px; font-size: 0.85rem; color: rgb(124, 45, 18);">
     <span id="arSelCount">1 faktur dipilih</span>
-    <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;" onclick="openTagihanChoiceModal()">🧾 Cetak Tagihan Terpilih</button>
+    <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;" onclick="printTagihanTerpilih()">🧾 Cetak Tagihan Terpilih</button>
     <button type="button" class="btn" style="padding:4px 12px;font-size:0.8rem;background:#fff;" onclick="clearArSelection()">Batal pilih</button>
   </div>
 
@@ -2913,8 +2888,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               <div class="ano-card" data-k="2"><div class="ano-card-l">2 · Ada di AR, Tidak Ada di Penjualan</div><div class="ano-card-v" id="anoC2">1</div></div>
               <div class="ano-card" data-k="3"><div class="ano-card-l">3 · UM Piutang Tempo, Tidak Ada di AR</div><div class="ano-card-v" id="anoC3">7</div></div>
               <div class="ano-card" data-k="4"><div class="ano-card-l">4 · Status / Nominal AR vs UM beda</div><div class="ano-card-v" id="anoC4">125</div></div>
-              <div class="ano-card" data-k="5"><div class="ano-card-l">5 · AR belum lunas, Tidak ada U Masuk</div><div class="ano-card-v" id="anoC5">327</div></div>
-              <div class="ano-card" data-k="6"><div class="ano-card-l">6 · Cash Penjualan, belum di Uang Masuk</div><div class="ano-card-v" id="anoC6">5</div></div>
+              <div class="ano-card" data-k="5"><div class="ano-card-l">5 · Cash Penjualan, belum di Uang Masuk</div><div class="ano-card-v" id="anoC5">0</div></div>
             </div>
 
             <div class="ano-toolbar-below">
@@ -3060,7 +3034,6 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                 <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActPj" checked=""> Penjualan</label>
                 <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActAr" checked=""> AR</label>
                 <label style="font-size:0.75rem;display:inline-flex;align-items:center;gap:4px;"><input type="checkbox" id="fixActUm" checked=""> Uang Masuk</label>
-                <button type="button" class="btn btn-success" id="fixBtnSyncLunas" style="display:none;margin-left:8px;" onclick="anoSyncArLunasFromUm()" title="Update status AR menjadi Lunas sesuai data Uang Masuk">✓ Masukkan Lunas ke Data AR</button>
                 <button type="button" class="btn btn-danger" style="margin-left:auto;" onclick="fixMoveToTrash()">🗑️ Pindah ke Sampah</button>
                 <button type="button" class="btn btn-secondary" onclick="fixCloseDetail()">Tutup</button>
               </div>
@@ -3108,7 +3081,6 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
               <label style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; opacity: 1;"><input type="checkbox" id="anoActPj" checked=""> Penjualan</label>
               <label style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; opacity: 1;"><input type="checkbox" id="anoActAr" checked=""> AR</label>
               <label style="font-size: 0.75rem; display: inline-flex; align-items: center; gap: 4px; opacity: 0.4;"><input type="checkbox" id="anoActUm" checked="" disabled=""> Uang Masuk</label>
-              <button type="button" class="btn btn-success" id="anoBtnSyncLunas" style="display:none;margin-left:8px;" onclick="anoSyncArLunasFromUm()" title="Update status AR menjadi Lunas sesuai data Uang Masuk">✓ Masukkan Lunas ke Data AR</button>
               <button type="button" class="btn btn-danger" style="margin-left:auto;" onclick="anoMoveToTrash()">🗑️ Pindah ke Sampah</button>
               <button type="button" class="btn btn-secondary" onclick="anoCloseDetail()">Tutup</button>
             </div>
@@ -3334,9 +3306,9 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         let sortDirection = 'desc';
 
         // ===== COLUMN VISIBILITY =====
-        const ALL_COLUMNS = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Satuan', 'Harga Jual', 'Disc', 'Total', 'Sales', 'Customer', 'Alamat', 'Pembayaran', 'Harga Beli', 'Profit'];
+        const ALL_COLUMNS = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Satuan', 'Harga Jual', 'Disc', 'Total', 'Nominal Faktur', 'Sales', 'Customer', 'Alamat', 'Pembayaran', 'Harga Beli', 'Profit'];
         // Kolom yang tampil pertama kali dibuka (ringkas, tidak semua kolom)
-        const DEFAULT_VISIBLE_COLUMNS = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Total', 'Sales', 'Customer', 'Pembayaran'];
+        const DEFAULT_VISIBLE_COLUMNS = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Total', 'Nominal Faktur', 'Sales', 'Customer', 'Pembayaran'];
         let visibleColumns = new Set(DEFAULT_VISIBLE_COLUMNS);
 
         // ===== FORMATTERS =====
@@ -3348,6 +3320,36 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
         function formatNumber(angka) {
             if (angka === '' || angka === null || angka === undefined) return '-';
             return Number(angka).toLocaleString('id-ID');
+        }
+
+        // ===== NOMINAL FAKTUR (total gabungan semua item dg No.Faktur yg sama) =====
+        // Cache map No.Faktur(dinormalisasi) -> total nominal seluruh item di faktur itu.
+        // Dibangun dari allData supaya nilainya tetap utuh walau tabel sedang difilter/dicari.
+        let _fakturTotalMapCache = null;
+        let _fakturTotalMapCacheLen = -1;
+        function normFakturKey(v) {
+            if (typeof anoNormFaktur === 'function') return anoNormFaktur(v);
+            return String(v == null ? '' : v).trim();
+        }
+        function getFakturTotalMap() {
+            // Rebuild hanya jika jumlah baris data berubah (murah & cukup akurat untuk cache)
+            if (_fakturTotalMapCache && _fakturTotalMapCacheLen === allData.length) {
+                return _fakturTotalMapCache;
+            }
+            const map = new Map();
+            allData.forEach(r => {
+                const key = normFakturKey(r['No.Faktur']);
+                const cur = map.get(key) || 0;
+                map.set(key, cur + (Number(r.Total) || 0));
+            });
+            _fakturTotalMapCache = map;
+            _fakturTotalMapCacheLen = allData.length;
+            return map;
+        }
+        function getNominalFaktur(row) {
+            const map = getFakturTotalMap();
+            const key = normFakturKey(row['No.Faktur']);
+            return map.has(key) ? map.get(key) : (Number(row.Total) || 0);
         }
 
         function parseDate(dateStr) {
@@ -3852,6 +3854,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                 case 'Harga Jual': return `<td class="text-right rupiah">${formatRupiah(row['Harga Jual'])}</td>`;
                 case 'Disc': return `<td class="text-right disc">${formatRupiah(row.Disc)}</td>`;
                 case 'Total': return `<td class="text-right rupiah">${formatRupiah(row.Total)}</td>`;
+                case 'Nominal Faktur': return `<td class="text-right rupiah"><strong>${formatRupiah(getNominalFaktur(row))}</strong></td>`;
                 case 'Sales': return `<td><strong>${row.Sales}</strong></td>`;
                 case 'Customer': return `<td>${row.Customer}</td>`;
                 case 'Alamat': return `<td>${row.Alamat}</td>`;
@@ -3874,7 +3877,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                 html += '<th>Tidak ada kolom dipilih</th>';
             } else {
                 columns.forEach(col => {
-                    const align = ['Jumlah', 'Harga Jual', 'Disc', 'Total', 'Harga Beli', 'Profit'].includes(col) ? 'text-right' : '';
+                    const align = ['Jumlah', 'Harga Jual', 'Disc', 'Total', 'Nominal Faktur', 'Harga Beli', 'Profit'].includes(col) ? 'text-right' : '';
                     html += `<th class="${align}" data-column="${col}" onclick="toggleSort('${col}')">${col}<span class="sort-icon">⇅</span></th>`;
                 });
             }
@@ -3962,7 +3965,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
 
         // ===== EXPORT =====
         function exportToCSV() {
-            const columns = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Satuan', 'Harga Jual', 'Disc', 'Total', 'Sales', 'Customer', 'Alamat', 'Pembayaran', 'Harga Beli', 'Profit'];
+            const columns = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Satuan', 'Harga Jual', 'Disc', 'Total', 'Nominal Faktur', 'Sales', 'Customer', 'Alamat', 'Pembayaran', 'Harga Beli', 'Profit'];
             let csv = columns.join(';') + '\n';
 
             filteredData.forEach(row => {
@@ -3970,6 +3973,9 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                     if (col === 'Profit') {
                         const p = computeProfit(row);
                         return p === null ? '' : p;
+                    }
+                    if (col === 'Nominal Faktur') {
+                        return getNominalFaktur(row);
                     }
                     let val = row[col] !== undefined ? row[col] : '';
                     if (col === 'Pembayaran') val = formatPembayaran(val);
@@ -4045,7 +4051,7 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                 return;
             }
 
-            const columns = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Satuan', 'Harga Jual', 'Disc', 'Total', 'Sales', 'Customer', 'Alamat', 'Pembayaran', 'Harga Beli', 'Profit'];
+            const columns = ['Tanggal', 'No.Faktur', 'Produk', 'Jumlah', 'Satuan', 'Harga Jual', 'Disc', 'Total', 'Nominal Faktur', 'Sales', 'Customer', 'Alamat', 'Pembayaran', 'Harga Beli', 'Profit'];
 
             let html = '<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40"><head><meta charset="utf-8"><style>th{background:#14324f;color:white;}td{border:1px solid #ddd;}</style></head><body><table>';
             html += '<thead><tr>' + columns.map(c => '<th>' + c + '</th>').join('') + '</tr></thead><tbody>';
@@ -4057,6 +4063,8 @@ body.dark-mode #anoTrashModal .transfer-modal-body > div[style*="border:1px"] { 
                     if (col === 'Profit') {
                         const p = computeProfit(row);
                         val = p === null ? '' : p;
+                    } else if (col === 'Nominal Faktur') {
+                        val = getNominalFaktur(row);
                     } else {
                         val = row[col] !== undefined ? row[col] : '';
                         if (col === 'Pembayaran') val = formatPembayaran(val);
@@ -5111,19 +5119,6 @@ function buildTagihanHtmlForSales(salesName, rows){
       <tr><td class="tgh-lbl">TANGGAL</td><td>: ${today}</td></tr>
     </table>
     <table class="tgh-table">
-      <colgroup>
-        <col style="width:7.3%">
-        <col style="width:10.7%">
-        <col style="width:13.8%">
-        <col style="width:15.7%">
-        <col style="width:7.0%">
-        <col style="width:7.4%">
-        <col style="width:7.9%">
-        <col style="width:7.4%">
-        <col style="width:8.7%">
-        <col style="width:6.9%">
-        <col style="width:7.2%">
-      </colgroup>
       <thead>
         <tr>
           <th rowspan="2">NO</th>
@@ -5183,148 +5178,6 @@ function todayStr2(){
   return `${dd}/${mm}/${d.getFullYear()}`;
 }
 function fmtRpPlain(n){ n = Number(n)||0; return Math.round(n).toLocaleString('id-ID'); }
-
-function openTagihanChoiceModal(){
-  const rows = getArSelectedRows();
-  if (rows.length === 0){
-    alert('Belum ada faktur yang dicentang. Centang dulu faktur yang mau ditagih di kolom paling kiri tabel.');
-    return;
-  }
-  const modal = document.getElementById('tagihan-choice-modal');
-  if (modal) modal.classList.add('show');
-}
-function closeTagihanChoiceModal(){
-  const modal = document.getElementById('tagihan-choice-modal');
-  if (modal) modal.classList.remove('show');
-}
-
-function appendTagihanBlockAoa(aoa, merges, salesName, rows, today){
-  const startRow = aoa.length;
-
-  aoa.push(['SALESMAN/DROPING','','',': ' + salesName,'','','','','','','']);
-  merges.push({ s:{r:startRow,   c:0}, e:{r:startRow,   c:2} });
-
-  aoa.push(['TANGGAL','','',': ' + today,'','','','','','','']);
-  merges.push({ s:{r:startRow+1, c:0}, e:{r:startRow+1, c:2} });
-
-  const headRow1 = startRow + 2;
-  const headRow2 = startRow + 3;
-  aoa.push(['NO','NO FAKTUR','NAMA OUTLET','ALAMAT','SALESMAN','TGL NOTA','TGL TEMPO','TAGIHAN','PEMBAYARAN','','KET']);
-  aoa.push(['','','','','','','','','CASH','TRANSFER','']);
-  [0,1,2,3,4,5,6,7,10].forEach(c => merges.push({ s:{r:headRow1,c:c}, e:{r:headRow2,c:c} }));
-  merges.push({ s:{r:headRow1,c:8}, e:{r:headRow1,c:9} });
-
-  let totalTagihan = 0;
-  rows.forEach((r, i) => {
-    const tagihan = r.sisaRiil != null ? r.sisaRiil : r.nominal;
-    totalTagihan += tagihan;
-    const ket = String(r.sumber || '').toUpperCase().replace('RUPA-RUPA', 'RUPA2');
-    aoa.push([
-      i + 1,
-      String(r.noFaktur || ''),
-      r.toko || '',
-      r.alamat || '',
-      r.sales || '',
-      fmtDate(r.tglFaktur),
-      fmtDate(r.tglJatuhTempo),
-      tagihan,
-      '', '',
-      ket
-    ]);
-  });
-
-  const totalRow = aoa.length;
-  aoa.push(['TOTAL','','','','','','', totalTagihan,'','','']);
-  merges.push({ s:{r:totalRow,c:0}, e:{r:totalRow,c:6} });
-
-  aoa.push(['','','','','','','','','','','']);
-  aoa.push(['','','','','','','','','','','']);
-  aoa.push(['','','','','','','','','','','']);
-
-  aoa.push(['','','','','','','','','TOTAL SETORAN',': Rp ....................................','']);
-  aoa.push(['','','','','','','','','OPERASIONAL',': Rp ....................................','']);
-  aoa.push(['','','','','','','','','LAIN LAIN',': Rp ....................................','']);
-  aoa.push(['','','','','','','','','','','']);
-  aoa.push(['','','','','','','','','DISETORKAN',': Rp ....................................','']);
-
-  aoa.push(['','','','','','','','','','','']);
-  aoa.push(['','','','','','','','','','','']);
-
-  const signRow = aoa.length;
-  aoa.push(['','','SALESMAN/DROPING','','','','','','','Adm KASIR','']);
-
-  // spacer before next block
-  aoa.push(['','','','','','','','','','','']);
-  aoa.push(['','','','','','','','','','','']);
-
-  return { totalRow, signRow };
-}
-
-function exportTagihanExcel(){
-  const rows = getArSelectedRows();
-  if (rows.length === 0){
-    alert('Belum ada faktur yang dicentang. Centang dulu faktur yang mau ditagih di kolom paling kiri tabel.');
-    return;
-  }
-  if (typeof XLSX === 'undefined'){
-    alert('Library Excel belum siap dimuat, coba lagi sebentar lagi.');
-    return;
-  }
-  const bySales = {};
-  const order = [];
-  rows.forEach(r => {
-    const name = r.sales || '(Tanpa Sales)';
-    if (!bySales[name]) { bySales[name] = []; order.push(name); }
-    bySales[name].push(r);
-  });
-
-  const today = todayStr2();
-  const aoa = [];
-  const merges = [];
-  const totalCells = []; // {row, value} to number-format
-  const noFakturRows = []; // row indices with text-only faktur col
-
-  order.forEach(name => {
-    const beforeLen = aoa.length;
-    const info = appendTagihanBlockAoa(aoa, merges, name, bySales[name], today);
-    totalCells.push(info.totalRow);
-    // remember data row range for number/text formatting
-    for (let r = beforeLen + 4; r < info.totalRow; r++) noFakturRows.push(r);
-  });
-
-  const ws = XLSX.utils.aoa_to_sheet(aoa);
-  ws['!merges'] = merges;
-  ws['!cols'] = [
-    { wch: 13 },   // NO
-    { wch: 19.14 },// NO FAKTUR
-    { wch: 24.57 },// NAMA OUTLET
-    { wch: 28 },   // ALAMAT
-    { wch: 12.57 },// SALESMAN
-    { wch: 13.29 },// TGL NOTA
-    { wch: 14.14 },// TGL TEMPO
-    { wch: 13.14 },// TAGIHAN
-    { wch: 15.57 },// CASH
-    { wch: 12.29 },// TRANSFER
-    { wch: 13 },   // KET
-  ];
-
-  // Force NO FAKTUR column to text (prevents scientific notation) and TAGIHAN column to number format
-  noFakturRows.forEach(r => {
-    const fakturAddr = XLSX.utils.encode_cell({ r, c: 1 });
-    if (ws[fakturAddr]) { ws[fakturAddr].t = 's'; ws[fakturAddr].z = '@'; }
-    const tagihanAddr = XLSX.utils.encode_cell({ r, c: 7 });
-    if (ws[tagihanAddr] && typeof ws[tagihanAddr].v === 'number') ws[tagihanAddr].z = '#,##0';
-  });
-  totalCells.forEach(r => {
-    const addr = XLSX.utils.encode_cell({ r, c: 7 });
-    if (ws[addr] && typeof ws[addr].v === 'number') ws[addr].z = '#,##0';
-  });
-
-  const wb = XLSX.utils.book_new();
-  XLSX.utils.book_append_sheet(wb, ws, 'Tagihan');
-  const stamp = new Date().toISOString().slice(0,10);
-  XLSX.writeFile(wb, 'Tagihan_Terpilih_' + stamp + '.xlsx');
-}
 
 function printTagihanTerpilih(){
   const rows = getArSelectedRows();
@@ -5781,7 +5634,7 @@ function wireArMenuActions(){
   const cetakTagihanMenu = document.getElementById('btnCetakTagihanMenu');
   if (cetakTagihanMenu) cetakTagihanMenu.addEventListener('click', () => {
     closeMenu();
-    openTagihanChoiceModal();
+    printTagihanTerpilih();
   });
   const hapusSemua = document.getElementById('btnHapusSemuaAr');
   if (hapusSemua) hapusSemua.addEventListener('click', () => {
@@ -7024,6 +6877,7 @@ function anoGetArMap() {
           noFaktur: String(r.noFaktur).trim(),
           sales: r.sales || '',
           toko: r.toko || '',
+          alamat: r.alamat || '',
           nominal: Number(r.nominal) || 0,
           totalPayment: Number(r.totalPayment) || 0,
           sisaRiil: Number(r.sisaRiil) || 0,
@@ -7067,6 +6921,7 @@ function anoGetUmMap() {
         noFaktur: String(r.faktur).trim(),
         sales: r.sales || '',
         toko: r.toko || '',
+        alamat: r.alamat || '',
         tagihan: Number(r.tagihan) || 0,
         totalBayar: 0,
         status: r.status || '—',
@@ -7549,6 +7404,55 @@ function anoRunFindingsWorker(pj, ar, um, cb) {
   }
 }
 
+function anoFindCashPaymentByIdentity(p, umMap) {
+  // Rekonsiliasi fallback untuk CASH: bila No. Faktur di Uang Masuk salah ketik,
+  // cari berdasarkan Toko + Alamat + Nominal. Tanggal hanya sebagai penguat.
+  if (!p || !umMap) return null;
+  const norm = v => String(v == null ? '' : v).toUpperCase().replace(/[^A-Z0-9]/g, '');
+  const tokoP = norm(p.toko);
+  const alamatP = norm(p.alamat);
+  const nomP = Math.abs(Number(p.nominal) || 0);
+  const TOL = 1000;
+  if (!tokoP || !nomP) return null;
+
+  const parseDate = v => {
+    if (v == null || v === '') return null;
+    if (typeof v === 'number') {
+      const d = new Date(Date.UTC(1899, 11, 30) + v * 86400000);
+      return isNaN(d) ? null : d;
+    }
+    const s = String(v).trim();
+    let m = s.match(/^(\d{1,2})[\/-](\d{1,2})[\/-](\d{4})$/);
+    if (m) return new Date(+m[3], +m[2]-1, +m[1]);
+    m = s.match(/^(\d{4})[\/-](\d{1,2})[\/-](\d{1,2})$/);
+    if (m) return new Date(+m[1], +m[2]-1, +m[3]);
+    return null;
+  };
+  const dP = parseDate(p.tglFaktur);
+  const candidates = [];
+  Object.keys(umMap).forEach(k => {
+    const u = umMap[k];
+    if (!u || !u.count) return;
+    const tag = Number(u.tagihan) || 0;
+    const pay = Number(u.totalBayar) || 0;
+    const nominalMatch = Math.abs(tag - nomP) <= TOL || Math.abs(pay - nomP) <= TOL || pay >= nomP - TOL;
+    if (!nominalMatch) return;
+    if (norm(u.toko) !== tokoP) return;
+    const alamatU = norm(u.alamat);
+    if (alamatP && alamatU && alamatP !== alamatU) return;
+    if (alamatP && !alamatU) return; // jangan anggap cocok jika alamat Penjualan ada tetapi UM tidak punya alamat
+    let dayDiff = 999999;
+    const dU = parseDate(u.tglBayarLast || u.tglBayar);
+    if (dP && dU) dayDiff = Math.abs(dU - dP) / 86400000;
+    candidates.push({ u, dayDiff, score: (alamatP ? 2 : 1) + (Math.abs(tag-nomP)<=TOL || Math.abs(pay-nomP)<=TOL ? 2 : 0) });
+  });
+  if (!candidates.length) return null;
+  candidates.sort((a,b) => b.score-a.score || a.dayDiff-b.dayDiff);
+  // Jika ada beberapa kandidat yang sama kuat dan sama-sama dekat, jangan menebak.
+  if (candidates.length > 1 && candidates[0].score === candidates[1].score && Math.abs(candidates[0].dayDiff-candidates[1].dayDiff) < 1) return null;
+  return candidates[0].u;
+}
+
 function anoRebuild(force) {
   if (anoIsRebuilding) return;
   anoIsRebuilding = true;
@@ -7733,29 +7637,21 @@ function anoRebuild(force) {
       }
     }
 
-    // 5. AR belum lunas, tidak muncul di Uang Masuk
-    if (a && !u && a.kategori !== 'lunas') {
-      findings.push({
-        jenis: 5,
-        noFaktur: a.noFaktur,
-        sales: a.sales,
-        toko: a.toko,
-        nomPj: p ? p.nominal : null,
-        nomAr: a.nominal,
-        bayarUm: null,
-        statusAr: a.statusLabel,
-        statusUm: '—',
-        sumberAr: a.sumber,
-        ket: 'AR ' + a.statusLabel + ' (sisa ' + Math.round(a.sisaRiil||0).toLocaleString('id-ID') + '), belum pernah masuk Uang Masuk'
-      });
-    }
+    // 5. AR belum lunas/titip tanpa Uang Masuk BUKAN anomali.
+    // Ini adalah kondisi normal tagihan yang memang belum dibayar.
 
     // 6. CASH di Penjualan, belum ada di Uang Masuk
     if (p && p.isCash && !p.isTempo && Math.abs(p.nominal) > 0.5) {
-      const hasUm6 = !!(u && ((u.count || 0) > 0 || (u.totalBayar || 0) > 0 || u.hasLunas || u.hasCashDropping || u.hasPiutangTempo));
-      if (!hasUm6) {
+      const umByFaktur6 = u || null;
+      const umByIdentity6 = !umByFaktur6 ? anoFindCashPaymentByIdentity(p, um) : null;
+      const matchedUm6 = umByFaktur6 || umByIdentity6;
+      const hasUm6 = !!(matchedUm6 && ((matchedUm6.count || 0) > 0 || (matchedUm6.totalBayar || 0) > 0 || matchedUm6.hasLunas || matchedUm6.hasCashDropping || matchedUm6.hasPiutangTempo));
+      const arOpen6 = !!(a && (a.kategori === 'belum' || a.kategori === 'titip'));
+      // Jika AR masih terbuka, kasus ini sudah ditangani sebagai anomali jenis 4.
+      // Jangan buat anomali kedua untuk faktur yang sama.
+      if (!hasUm6 && !arOpen6) {
         findings.push({
-          jenis: 6,
+          jenis: 5,
           noFaktur: p.noFaktur,
           sales: p.sales,
           toko: p.toko,
@@ -7765,7 +7661,7 @@ function anoRebuild(force) {
           statusAr: a ? a.statusLabel : '—',
           statusUm: '—',
           sumberAr: a ? a.sumber : '—',
-          ket: 'Faktur CASH di Penjualan (Rp ' + Math.round(Math.abs(p.nominal)).toLocaleString('id-ID') + '), belum pernah masuk Uang Masuk'
+          ket: 'Faktur CASH di Penjualan (Rp ' + Math.round(Math.abs(p.nominal)).toLocaleString('id-ID') + '), belum ditemukan di Uang Masuk setelah pencocokan Faktur + Toko/Alamat + Nominal'
         });
       }
     }
@@ -7773,6 +7669,21 @@ function anoRebuild(force) {
   }
 
   function anoFinalizeFindings() {
+  // Satu faktur hanya boleh mempunyai SATU anomali utama.
+  // Jika beberapa pemeriksaan menemukan faktur yang sama, pilih masalah paling penting.
+  const anoPriority = {4: 1, 1: 2, 2: 3, 3: 4, 5: 5};
+  const byFaktur = new Map();
+  findings.forEach(function(row) {
+    const key = anoNormFaktur(row.noFaktur);
+    if (!key) return;
+    const prev = byFaktur.get(key);
+    if (!prev || (anoPriority[row.jenis] || 99) < (anoPriority[prev.jenis] || 99)) {
+      byFaktur.set(key, row);
+    }
+  });
+  findings.length = 0;
+  byFaktur.forEach(function(row) { findings.push(row); });
+
   // sort by jenis then faktur
   findings.sort((x, y) => x.jenis - y.jenis || String(x.noFaktur).localeCompare(String(y.noFaktur)));
   // Lengkapi tanggal faktur & tgl bayar UM dari map
@@ -7810,7 +7721,7 @@ function anoRebuild(force) {
   // update counts (single pass)
   const counts = [0, 0, 0, 0, 0, 0, 0];
   for (let i = 0; i < findings.length; i++) counts[findings[i].jenis]++;
-  for (let i = 1; i <= 6; i++) {
+  for (let i = 1; i <= 5; i++) {
     const el = document.getElementById('anoC' + i);
     if (el) el.textContent = counts[i].toLocaleString('id-ID');
   }
@@ -7899,8 +7810,7 @@ function anoJenisLabel(j) {
     2: ['2·No PJ', 'ano-j2'],
     3: ['3·Cash', 'ano-j3'],
     4: ['4·Selisih', 'ano-j4'],
-    5: ['5·No UM', 'ano-j5'],
-    6: ['6·Cash−UM', 'ano-j6']
+    5: ['5·Cash−UM', 'ano-j5']
   };
   const m = map[j] || ['?', ''];
   return '<span class="ano-jenis ' + m[1] + '" title="' + (m[0]) + '">' + m[0] + '</span>';
@@ -8196,141 +8106,6 @@ function anoFillActionChecks(prefix, hasPj, hasAr, hasUm) {
   if (elUm) { elUm.checked = hasUm; elUm.disabled = !hasUm; elUm.parentElement.style.opacity = hasUm ? '1' : '0.4'; }
 }
 
-function anoParseUmDateToSerial(dateStr) {
-  if (!dateStr) return null;
-  const s = String(dateStr).trim();
-  // YYYY-MM-DD
-  let m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
-  if (m && typeof dateToExcelSerial === 'function') {
-    return dateToExcelSerial(m[1] + '-' + m[2] + '-' + m[3]);
-  }
-  // DD/MM/YYYY or D/M/YYYY
-  m = s.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{4})$/);
-  if (m) {
-    const d = parseInt(m[1], 10);
-    const mo = parseInt(m[2], 10);
-    const y = parseInt(m[3], 10);
-    if (typeof dateToExcelSerial === 'function') {
-      return dateToExcelSerial(y + '-' + String(mo).padStart(2, '0') + '-' + String(d).padStart(2, '0'));
-    }
-    const utcMs = Date.UTC(y, mo - 1, d);
-    return Math.floor(utcMs / 86400000) + 25569;
-  }
-  return null;
-}
-
-/** Cek apakah faktur layak disinkronkan: UM Lunas, AR masih belum/titip */
-function anoCanSyncArLunas(noFaktur) {
-  const fKey = anoNormFaktur(noFaktur);
-  if (!fKey) return null;
-  const umMap = typeof anoGetUmMap === 'function' ? anoGetUmMap() : {};
-  const arMap = typeof anoGetArMap === 'function' ? anoGetArMap() : {};
-  const u = umMap[fKey];
-  const a = arMap[fKey];
-  if (!u || !a) return null;
-  if (u.status !== 'LUNAS' && !u.hasLunas) return null;
-  if (a.kategori === 'lunas') return null;
-  const umPay = Number(u.totalBayar) || 0;
-  const nom = Number(a.nominal) || 0;
-  // UM harus menutup nominal (toleransi Rp 1000) atau minimal ada pembayaran
-  if (umPay <= 0) return null;
-  return {
-    fKey: fKey,
-    noFaktur: a.noFaktur || noFaktur,
-    umPay: umPay,
-    nominal: nom,
-    tglBayar: u.tglBayarLast || u.tglBayar || '',
-    sumber: a.sumber || '',
-    statusAr: a.statusLabel || a.kategori
-  };
-}
-
-function anoUpdateSyncLunasBtn(prefix, noFaktur) {
-  const btn = document.getElementById(prefix + 'BtnSyncLunas');
-  if (!btn) return;
-  const info = anoCanSyncArLunas(noFaktur);
-  if (info) {
-    btn.style.display = 'inline-flex';
-    btn.title = 'UM Lunas (Rp ' + Math.round(info.umPay).toLocaleString('id-ID') + ') → update AR jadi Lunas';
-  } else {
-    btn.style.display = 'none';
-  }
-}
-
-/**
- * Sinkronkan status Lunas dari Uang Masuk ke baris AR faktur yang sama.
- * - totalPayment = max(bayar UM, nominal) agar tertutup
- * - sisaRiil = 0, kategori = lunas
- * - tglPelunasan diisi dari tanggal bayar UM terakhir (jika ada)
- */
-function anoSyncArLunasFromUm() {
-  const noFaktur = _anoDetailFaktur;
-  if (!noFaktur) { alert('Faktur tidak dikenali.'); return; }
-  const info = anoCanSyncArLunas(noFaktur);
-  if (!info) {
-    alert('Tidak bisa sinkronkan.\nSyarat: Uang Masuk sudah Lunas, AR masih Belum Lunas/Titip, dan ada nominal bayar UM.');
-    return;
-  }
-
-  const fKey = info.fKey;
-  const umPay = info.umPay;
-  const tglSerial = anoParseUmDateToSerial(info.tglBayar);
-  let updated = 0;
-  const details = [];
-
-  if (typeof state === 'undefined') {
-    alert('Data AR belum dimuat.');
-    return;
-  }
-
-  ['A', 'B'].forEach(function(k) {
-    if (!state[k] || !state[k].rows) return;
-    state[k].rows.forEach(function(r) {
-      if (anoNormFaktur(r.noFaktur) !== fKey) return;
-      if (r.kategori === 'lunas') return;
-      const nom = Number(r.nominal) || Number(r.saldoAwal) || 0;
-      // Bayar penuh: minimal nominal, atau sesuai total UM jika lebih besar
-      const newPay = Math.max(umPay, nom);
-      r.totalPayment = newPay;
-      r.sisaRiil = 0;
-      r.kategori = 'lunas';
-      if (tglSerial != null) r.tglPelunasan = tglSerial;
-      updated++;
-      details.push((state[k].label || k) + ': ' + String(r.noFaktur) + ' → LUNAS (bayar ' + Math.round(newPay).toLocaleString('id-ID') + ')');
-    });
-  });
-
-  if (!updated) {
-    alert('Tidak ada baris AR yang diubah (mungkin sudah Lunas atau faktur tidak cocok).');
-    return;
-  }
-
-  if (typeof updateUploadStatus === 'function') updateUploadStatus();
-  if (typeof rebuildSumberFilter === 'function') rebuildSumberFilter();
-  if (typeof rebuildSalesFilter === 'function') rebuildSalesFilter();
-  if (typeof saveStateToStorage === 'function') saveStateToStorage();
-  if (typeof render === 'function') render();
-
-  // Rebuild anomali & refresh modal
-  if (typeof anoScheduleRebuild === 'function') anoScheduleRebuild(true);
-  else if (typeof anoRebuild === 'function') anoRebuild(true);
-  if (typeof fixRebuild === 'function') fixRebuild(true);
-
-  alert('Berhasil sinkronkan ' + updated + ' baris AR:\n' + details.join('\n') +
-    '\n\nStatus AR sekarang: SUDAH LUNAS (sesuai Uang Masuk).');
-
-  // Refresh isi modal jika masih terbuka
-  const anoModal = document.getElementById('anoDetailModal');
-  if (anoModal && anoModal.classList.contains('show')) {
-    anoOpenDetail(noFaktur);
-  }
-  const fixPanel = document.getElementById('fixDetailPanel');
-  if (fixPanel && fixPanel.style.display !== 'none') {
-    fixOpenDetail(noFaktur);
-  }
-}
-
-
 // Dipakai oleh tab "DATA ANOMALI" — tampil sebagai modal popup (perilaku lama)
 function anoOpenDetail(noFaktur, jenisHint) {
   _anoDetailFaktur = noFaktur;
@@ -8339,7 +8114,6 @@ function anoOpenDetail(noFaktur, jenisHint) {
   if (title) title.textContent = d.titleText;
   document.getElementById('anoDetailBody').innerHTML = d.html;
   anoFillActionChecks('ano', d.hasPj, d.hasAr, d.hasUm);
-  anoUpdateSyncLunasBtn('ano', noFaktur);
   document.getElementById('anoDetailModal').classList.add('show');
 }
 
@@ -8351,7 +8125,6 @@ function fixOpenDetail(noFaktur, jenisHint) {
   if (title) title.textContent = d.titleText;
   document.getElementById('fixDetailBody').innerHTML = d.html;
   anoFillActionChecks('fix', d.hasPj, d.hasAr, d.hasUm);
-  anoUpdateSyncLunasBtn('fix', noFaktur);
   const panel = document.getElementById('fixDetailPanel');
   if (panel) {
     panel.style.display = 'block';
