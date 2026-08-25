@@ -9733,7 +9733,7 @@ async function scanUmPersistCurrentData(){
   const umRows = (typeof umAllRows!=='undefined' && Array.isArray(umAllRows)) ? umAllRows : [];
   const sales = salesRows.map((r,i)=>({
     id:r._scanDbId || ('s'+i+'_'+String(r['No.Faktur']||r.noFaktur||'')),
-    bulan:String(r.Bulan||r.bulan||''),
+    bulan:scanUmMonthKey(r.Tanggal||r.tanggal||''),
     tanggal:r.Tanggal||r.tanggal||'',
     faktur:r['No.Faktur']||r.noFaktur||'',
     sales:r.Sales||r.sales||'',
@@ -9743,8 +9743,8 @@ async function scanUmPersistCurrentData(){
   }));
   const uangMasuk = umRows.map((r,i)=>({
     id:r._scanDbId || ('u'+i+'_'+String(r.faktur||'')),
-    bulan:String(r.Bulan||r.bulan||''),
-    tanggal:r.Tanggal||r.tanggal||'',
+    bulan:scanUmMonthKey(r.date||r.Tanggal||r.tanggal||''),
+    tanggal:r.date||r.Tanggal||r.tanggal||'',
     faktur:r.faktur||r['No.Faktur']||'',
     sales:r.sales||r.Sales||'',
     customer:r.customer||r.Customer||r.toko||r.Toko||'',
@@ -9761,7 +9761,11 @@ async function scanUmPersistCurrentData(){
 async function scanUmGetMonthData(monthValue){
   const db=scanDbOpen();
   if(!db) return null;
-  const sales=await db.sales.where('bulan').equals(String(monthValue)).toArray();
+  // Catatan: filter per-bulan yang sesungguhnya dilakukan di scanUmGetFilteredRows()
+  // (lewat dropdown Bulan 1 / Bulan 2) setelah hasil pencocokan terbentuk, bukan di
+  // sini. Jadi ambil SEMUA baris Penjualan & Uang Masuk supaya scan tidak pernah
+  // kosong hanya karena filter bulan di lapisan database tidak cocok.
+  const sales=await db.sales.toArray();
   const ums=await db.uangMasuk.toArray(); // UM tetap lintas bulan untuk pembayaran Tempo
   return {sales, uangMasuk:ums};
 }
@@ -10065,25 +10069,26 @@ function scanUmExportExcel(){
 <script>
 async function scanUmPenjualanFast(){
   const info=document.getElementById('scanumInfo');
-  if(info) info.textContent='Menyiapkan data bulan terkini…';
-  const db=scanDbOpen();
-  if(!db){
-    console.warn('scanUmPenjualanFast: Dexie tidak tersedia, fallback ke mesin lama (scanUmPenjualan).');
-    if(info) info.textContent='Memindai (mesin lama)…';
-    if(typeof scanUmPenjualan==='function') scanUmPenjualan();
-    return;
-  }
+  if(info) info.textContent='Memindai…';
 
+  // Catatan: mesin pencocokan lewat Web Worker (scanWorkerRun) menghasilkan skema
+  // baris yang TIDAK cocok dengan yang dibutuhkan tabel/kartu/filter Scan UM
+  // (field seperti noFaktur, tanggal, toko, jenis, ket, tempo, umSection tidak
+  // pernah diisi oleh worker), sehingga hasil scan tampak kosong/blank walau
+  // sebenarnya ada baris. Karena itu pencocokan sesungguhnya tetap memakai
+  // scanUmBuild() (mesin lengkap & sudah teruji) di main thread. Dexie tetap
+  // dipakai untuk menyimpan data secara persisten di background.
   try{
-    await scanUmPersistCurrentData();
-    const sel=document.getElementById('scanumFilterBulan');
-    const month=sel ? sel.value : String(new Date().getMonth()+1).padStart(2,'0');
-    const data=await scanUmGetMonthData(month);
-    if(info) info.textContent='Memindai '+data.sales.length.toLocaleString('id-ID')+' transaksi bulan '+month+'…';
-    const result=await scanWorkerRun({type:'match',sales:data.sales,uangMasuk:data.uangMasuk});
-    scanUmRows=result.rows||[];
+    const db=scanDbOpen();
+    if(db){ try{ await scanUmPersistCurrentData(); }catch(e){ console.warn('scanUmPersistCurrentData gagal (non-fatal):', e); } }
+  }catch(e){ console.warn('scanDbOpen gagal (non-fatal):', e); }
+
+  await new Promise(r=>setTimeout(r,15)); // biarkan teks "Memindai…" sempat tergambar dulu
+  try{
+    scanUmRows=scanUmBuild();
     scanUmFilteredRows=scanUmRows.slice();
     scanUmDone=true;
+    if(typeof scanUmRefreshMonthOptions==='function') scanUmRefreshMonthOptions();
     if(typeof scanUmRender==='function') scanUmRender();
   }catch(e){
     console.error('scanUmPenjualanFast',e);
