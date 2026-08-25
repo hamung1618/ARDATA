@@ -3636,7 +3636,8 @@ async function persistMainSalesAsync(rows, onProgress){
             'dataPenjualanState_v1',
             'piutangHarianState_v1',
             'uangMasukState_v1',
-            'dataSampahState_v1'
+            'dataSampahState_v1',
+            'scanUmResultState_v1'
         ];
 
         // ===== DATA =====
@@ -9262,6 +9263,14 @@ function anoExportCSV() {
         if (typeof umLoadFromStorage === 'function') umLoadFromStorage();
       } catch (e) { console.warn('boot UM', e); }
       try {
+        if (typeof scanUmLoadResultFromStorage === 'function' && scanUmLoadResultFromStorage()) {
+          if (typeof scanUmRefreshMonthOptions === 'function') scanUmRefreshMonthOptions();
+          if (typeof scanUmRender === 'function') scanUmRender();
+          const info = document.getElementById('scanumInfo');
+          if (info) info.textContent += ' · hasil scan terakhir (klik "Scan Sekarang" untuk memindai ulang dengan data terbaru)';
+        }
+      } catch (e) { console.warn('boot ScanUM', e); }
+      try {
         if (typeof trashLoad === 'function') trashLoad();
       } catch (e) { console.warn('boot trash', e); }
       // Segarkan tabel anomali agar tidak menampilkan data statis/usang
@@ -9770,6 +9779,33 @@ async function scanUmGetMonthData(monthValue){
   return {sales, uangMasuk:ums};
 }
 
+// ---- Persist hasil Scan UM supaya TIDAK hilang saat halaman di-refresh ----
+// Hasil scan bisa lama untuk dihitung (ribuan faktur), jadi begitu selesai,
+// simpan ke penyimpanan lokal (IndexedDB via storageSet). Saat halaman dibuka
+// lagi, hasil terakhir langsung ditampilkan tanpa perlu klik "Scan Sekarang"
+// ulang. Pengguna tetap bisa klik "Scan Sekarang" kapan saja untuk memindai ulang
+// dengan data terbaru.
+const SCANUM_RESULT_STORAGE_KEY = 'scanUmResultState_v1';
+function scanUmSaveResultToStorage(){
+  try{
+    storageSet(SCANUM_RESULT_STORAGE_KEY, JSON.stringify({rows:scanUmRows, savedAt:new Date().toISOString()}));
+  }catch(e){ console.warn('Gagal menyimpan hasil Scan UM:', e); }
+}
+function scanUmLoadResultFromStorage(){
+  try{
+    const raw=storageGet(SCANUM_RESULT_STORAGE_KEY);
+    if(!raw) return false;
+    const parsed=JSON.parse(raw);
+    if(parsed && Array.isArray(parsed.rows) && parsed.rows.length){
+      scanUmRows=parsed.rows;
+      scanUmFilteredRows=scanUmRows.slice();
+      scanUmDone=true;
+      return true;
+    }
+  }catch(e){ console.warn('Gagal memuat hasil Scan UM tersimpan:', e); }
+  return false;
+}
+
 function scanUmPenjualan(){
   const infoEl=document.getElementById('scanumInfo');
   if(infoEl) infoEl.textContent='Memindai…';
@@ -9778,6 +9814,7 @@ function scanUmPenjualan(){
       scanUmRows=scanUmBuild(); scanUmDone=true;
       scanUmRefreshMonthOptions();
       scanUmRender();
+      scanUmSaveResultToStorage();
     } catch(e){
       console.error('scanUmPenjualan', e);
       if(infoEl) infoEl.textContent='Gagal memindai: '+(e&&e.message||e);
@@ -10090,6 +10127,7 @@ async function scanUmPenjualanFast(){
     scanUmDone=true;
     if(typeof scanUmRefreshMonthOptions==='function') scanUmRefreshMonthOptions();
     if(typeof scanUmRender==='function') scanUmRender();
+    if(typeof scanUmSaveResultToStorage==='function') scanUmSaveResultToStorage();
   }catch(e){
     console.error('scanUmPenjualanFast',e);
     if(info) info.textContent='Scan gagal: '+(e.message||e);
