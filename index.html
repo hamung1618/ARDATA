@@ -10067,7 +10067,12 @@ async function scanUmPenjualanFast(){
   const info=document.getElementById('scanumInfo');
   if(info) info.textContent='Menyiapkan data bulan terkini…';
   const db=scanDbOpen();
-  if(!db){ scanUmPenjualanFast(); return; }
+  if(!db){
+    console.warn('scanUmPenjualanFast: Dexie tidak tersedia, fallback ke mesin lama (scanUmPenjualan).');
+    if(info) info.textContent='Memindai (mesin lama)…';
+    if(typeof scanUmPenjualan==='function') scanUmPenjualan();
+    return;
+  }
 
   try{
     await scanUmPersistCurrentData();
