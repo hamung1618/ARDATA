@@ -2920,17 +2920,7 @@ async function persistMainSalesAsync(rows, onProgress){
   </div>
 
   <footer>
-    <b>Catatan cara kerja:</b> setiap slot (Sumber A / Sumber B) menyimpan hasil upload TERAKHIR saja —
-    kalau besok Anda upload file baru ke slot yang sama, data lama di slot itu otomatis tergantikan,
-    tidak akan menumpuk/dobel. Anda juga bisa menambah data satu per satu lewat menu
-    <b>Input AR Minyak</b> / <b>Input AR Rupa‑rupa</b> (data manual digabung ke slot yang sama).
-    Kategori dibaca dari kolom STATUS dan TOTAL PAYMENT:
-    <b>Sudah Lunas</b> = status "SUDAH LUNAS", <b>Bayar Titip</b> = masih piutang tapi sudah ada pembayaran sebagian,
-    <b>Belum Lunas</b> = masih piutang dan belum ada pembayaran sama sekali. Semua proses dilakukan di
-    komputer Anda sendiri (di dalam browser) — file tidak dikirim ke server manapun. Data hasil upload, input manual, dan kirim dari Data Penjualan disimpan otomatis di browser (IndexedDB). Data lama di localStorage otomatis dimigrasi.
-    Untuk keamanan, rutin unduh backup lewat <b>⚙️ Menu → 💾 Simpan Data AR (JSON)</b>.
-    Pulihkan kapan saja lewat <b>📂 Pulihkan Data AR</b>. Cetak juga ada di menu gerigi yang sama.
-    Data hilang jika Anda klik "hapus", clear data browser, atau buka dari perangkat lain tanpa file backup.
+    Untuk keamanan, rutin unduh backup lewat <b>⚙️ Menu → 💾 Simpan Data AR (JSON)</b>. Pulihkan kapan saja lewat <b>📂 Pulihkan Data AR</b>.
   </footer>
 
 </div>
@@ -10071,10 +10061,8 @@ function scanUmExportExcel(){
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/v4513226cdae34746b4dedf0b4dfa099e1781791509496" integrity="sha512-ZE9pZaUXND66v380QUtch/5sE9tPFh2zg45pR2PB0CVkCtOREv2AJKkSidISWkysEuQ0EH8faUU5du78bx87UQ==" data-cf-beacon='{"version":"2024.11.0","token":"4edd5f8ec12a48cfa682ab8261b80a79"}' crossorigin="anonymous"></script>
-</body>
-</html>
 
-
+<script>
 async function scanUmPenjualanFast(){
   const info=document.getElementById('scanumInfo');
   if(info) info.textContent='Menyiapkan data bulan terkini…';
@@ -10097,6 +10085,7 @@ async function scanUmPenjualanFast(){
     if(info) info.textContent='Scan gagal: '+(e.message||e);
   }
 }
+</script>
 
 <script>
 /* Async Dexie entry point for Data Penjualan.
@@ -10382,3 +10371,6 @@ function scanUmBuild(){
   return rows;
 }
 </script>
+
+</body>
+</html>
