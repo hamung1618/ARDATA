@@ -1,23 +1,4 @@
 
-<style id="scanUmMenuFixStyle">
-#scanUmMenuWrap{position:relative;display:inline-block;margin-left:6px;vertical-align:middle}
-#scanUmMenuBtn{
-  border:1px solid #cbd5e1;background:#fff;border-radius:9px;padding:9px 14px;
-  font-weight:700;cursor:pointer;color:#102a43;white-space:nowrap;
-}
-#scanUmMenuBtn:hover{background:#f1f5f9}
-#scanUmMenuPanel{
-  display:none;position:absolute;right:0;top:calc(100% + 6px);z-index:9999;
-  min-width:190px;background:#fff;border:1px solid #d7e0ea;border-radius:10px;
-  box-shadow:0 12px 30px rgba(15,23,42,.16);padding:6px;
-}
-#scanUmMenuPanel.open{display:block}
-#scanUmMenuPanel button{
-  width:100%;text-align:left;border:0;background:#fff;padding:10px 12px;
-  border-radius:7px;cursor:pointer;font-size:13px;
-}
-#scanUmMenuPanel button:hover{background:#f1f5f9}
-</style>
 <!DOCTYPE html>
 <!-- saved from url=(0036)https://hamung1618.github.io/ARDATA/ -->
 <html lang="id"><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
@@ -3054,15 +3035,7 @@ async function persistMainSalesAsync(rows, onProgress){
                 <option value="">Bulan 2: —</option>
               </select>
               <span id="scanumInfo" class="scanum-info">Belum dilakukan scan.</span>
-              <span class="scanum-title-mini">🔎 Scan Data Uang Masuk × Data Penjualan
-
-<div id="scanUmMenuWrap">
-  <button id="scanUmMenuBtn" type="button" aria-expanded="false">☰ MENU</button>
-  <div id="scanUmMenuPanel">
-    <button type="button" id="scanUmMenuScan">🔄 Scan Sekarang</button>
-  </div>
-</div>
-</span>
+              <span class="scanum-title-mini">🔎 Scan Data Uang Masuk × Data Penjualan</span>
               <div class="dropdown scanum-menu-wrap">
                 <button type="button" class="btn btn-secondary" onclick="toggleMenu('scanumMenuDd')">⚙️ Menu ▾</button>
                 <div class="dropdown-menu" id="scanumMenuDd" style="right:0;left:auto;min-width:250px;">
@@ -10144,40 +10117,6 @@ async function applyFiltersAsyncDexie(){
     if(typeof render==='function') render();
   }
 }
-</script>
-
-<script id="scanUmMenuFixScript">
-(function(){
-  function initScanUmMenu(){
-    const btn=document.getElementById('scanUmMenuBtn');
-    const panel=document.getElementById('scanUmMenuPanel');
-    const scan=document.getElementById('scanUmMenuScan');
-    if(!btn||!panel||!scan||btn.dataset.ready) return;
-    btn.dataset.ready='1';
-    btn.addEventListener('click',function(e){
-      e.stopPropagation();
-      const open=panel.classList.toggle('open');
-      btn.setAttribute('aria-expanded',open?'true':'false');
-    });
-    document.addEventListener('click',function(){
-      panel.classList.remove('open');
-      btn.setAttribute('aria-expanded','false');
-    });
-    panel.addEventListener('click',e=>e.stopPropagation());
-    scan.addEventListener('click',function(){
-      panel.classList.remove('open');
-      btn.setAttribute('aria-expanded','false');
-      if(typeof scanUmPenjualanFast==='function'){
-        scanUmPenjualanFast();
-      }else if(typeof scanUmPenjualan==='function'){
-        scanUmPenjualan();
-      }
-    });
-  }
-  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',initScanUmMenu);
-  else initScanUmMenu();
-  setTimeout(initScanUmMenu,500);
-})();
 </script>
 
 
