@@ -10201,14 +10201,16 @@ function scanUmBuild(){
     scanUmNum(r.minyakCash)+scanUmNum(r.rupaCash)+
     scanUmNum(r.minyakTf)+scanUmNum(r.rupaTf)
   );
-  const sim=(a,b)=>{
-    const A=scanUmNorm(a),B=scanUmNorm(b);
-    if(!A||!B)return 0;
-    if(A===B)return 1;
-    const at=uniq(A.split(' ')),bt=uniq(B.split(' '));
-    let hit=0; for(const x of at)if(bt.includes(x))hit++;
-    return hit/Math.max(at.length,bt.length);
+  // sim() dulu menghitung ulang scanUmNorm()+split() dari string mentah pada
+  // SETIAP perbandingan (dipanggil jutaan kali untuk dataset besar). Sekarang
+  // menerima nilai yang sudah dinormalisasi & di-tokenisasi sekali di awal.
+  const simPre=(aNorm,aTok,bNorm,bTok)=>{
+    if(!aNorm||!bNorm)return 0;
+    if(aNorm===bNorm)return 1;
+    let hit=0; for(const x of aTok) if(bTok.includes(x)) hit++;
+    return hit/Math.max(aTok.length,bTok.length);
   };
+  const tokOf=v=>uniq(scanUmNorm(v).split(' '));
 
   /* ---------------- DATA PENJUALAN = MASTER ---------------- */
   pjRows.forEach(r=>{
@@ -10216,19 +10218,26 @@ function scanUmBuild(){
     if(!f)return;
     if(!pjMap[f]){
       const parsed=scanUmParseSalesField(r.Sales);
+      const toko=r.Customer||'', alamat=r.Alamat||'';
       pjMap[f]={
         noFaktur:String(r['No.Faktur']||'').trim(),
         sales:parsed.sales,
         salesRaw:parsed.raw,
-        toko:r.Customer||'',
-        alamat:r.Alamat||'',
+        toko,
+        alamat,
         tanggal:r.Tanggal||'',
         nominal:0,
         lines:0,
         cash:false,
         tempo:false,
         salesConflict:false,
-        salesSet:new Set()
+        salesSet:new Set(),
+        // Pre-komputasi sekali per faktur (bukan per-perbandingan):
+        salesNorm:scanUmNorm(parsed.sales),
+        tokoNorm:scanUmNorm(toko),
+        tokoTok:tokOf(toko),
+        alamatNorm:scanUmNorm(alamat),
+        alamatTok:tokOf(alamat)
       };
     }
     const p=pjMap[f];
@@ -10248,38 +10257,61 @@ function scanUmBuild(){
   /* ---------------- DATA UANG MASUK ---------------- */
   const umRows=ums.map((r,idx)=>{
     const parsed=scanUmParseSalesField(r.sales);
+    const toko=String(r.toko||''), alamat=String(r.alamat||'');
     return {
       r,idx,
       f:scanUmFaktur(r.faktur),
       sales:parsed.sales,
       droppingSales:parsed.droppingSales,
-      toko:String(r.toko||''),
-      alamat:String(r.alamat||''),
+      toko,
+      alamat,
       tanggal:String(r.date||''),
       pay:rowPayment(r),
-      section:String(r.section||'').trim().toUpperCase()
+      section:String(r.section||'').trim().toUpperCase(),
+      // Pre-komputasi sekali per baris UM:
+      salesNorm:scanUmNorm(parsed.sales),
+      tokoNorm:scanUmNorm(toko),
+      tokoTok:tokOf(toko),
+      alamatNorm:scanUmNorm(alamat),
+      alamatTok:tokOf(alamat)
     };
+  });
+
+  // Aturan pencocokan MEWAJIBKAN Sales persis sama (kalau Penjualan punya Sales).
+  // Jadi kandidat bisa diindeks per-Sales: satu faktur cukup memeriksa baris UM
+  // milik sales yang sama, bukan seluruh Data Uang Masuk. Ini mengubah
+  // kompleksitas dari O(jumlah faktur × jumlah baris UM) menjadi mendekati
+  // O(jumlah faktur × ukuran grup sales) — jauh lebih kecil untuk data besar.
+  const umBySales=new Map();
+  umRows.forEach(u=>{
+    const key=u.salesNorm;
+    if(!umBySales.has(key)) umBySales.set(key,[]);
+    umBySales.get(key).push(u);
   });
 
   const rows=[];
   const candidatesFor=(p,isTempo)=>{
     const wanted=scanUmSectionForType(isTempo);
     const out=[];
-    for(const u of umRows){
+    // Kalau Penjualan punya Sales, cukup periksa baris UM dari sales yang sama
+    // (indeks). Kalau Sales kosong (jarang), tetap periksa semua — sama seperti
+    // perilaku semula.
+    const pool = p.salesNorm ? (umBySales.get(p.salesNorm)||[]) : umRows;
+    for(const u of pool){
       if(usedRows.has(u.idx))continue;
 
       /* Jenis pembayaran harus sesuai transaksi Penjualan. */
       if(u.section && u.section!==wanted)continue;
 
       /* SALES HARUS TEPAT. Ini mencegah JOSSY masuk ke faktur RAJU. */
-      if(scanUmNorm(p.sales) && scanUmNorm(u.sales)!==scanUmNorm(p.sales))continue;
+      if(p.salesNorm && u.salesNorm!==p.salesNorm)continue;
 
-      const toko=sim(p.toko,u.toko);
-      const alamat=sim(p.alamat,u.alamat);
+      const toko=simPre(p.tokoNorm,p.tokoTok,u.tokoNorm,u.tokoTok);
+      const alamat=simPre(p.alamatNorm,p.alamatTok,u.alamatNorm,u.alamatTok);
 
       /* Jika kedua sumber punya identitas, identitas tersebut wajib cukup cocok. */
-      if(scanUmNorm(p.toko) && scanUmNorm(u.toko) && toko<0.5)continue;
-      if(scanUmNorm(p.alamat) && scanUmNorm(u.alamat) && alamat<0.5)continue;
+      if(p.tokoNorm && u.tokoNorm && toko<0.5)continue;
+      if(p.alamatNorm && u.alamatNorm && alamat<0.5)continue;
 
       const fakturSame=!!p.noFaktur && !!u.f && scanUmFaktur(p.noFaktur)===u.f;
       const nominal=u.pay;
@@ -10287,7 +10319,7 @@ function scanUmBuild(){
       if(fakturSame)score+=25;
       if(toko===1)score+=30; else if(toko>=0.5)score+=18;
       if(alamat===1)score+=25; else if(alamat>=0.5)score+=15;
-      if(scanUmNorm(p.sales)===scanUmNorm(u.sales))score+=30;
+      if(p.salesNorm===u.salesNorm)score+=30;
       if(nominal>0 && Math.abs(nominal-p.nominal)<=TOL)score+=25;
       else if(nominal>0 && p.nominal>0 && Math.abs(nominal-p.nominal)/p.nominal<=0.05)score+=10;
 
