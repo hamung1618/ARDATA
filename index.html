@@ -9933,7 +9933,7 @@ function scanUmShowFakturModal(no,pjRows,umRows,arRows,matchMode){
 
   const pjNominal=pjRows.reduce((a,r)=>a+(Number(r.Total)||0),0);
   const umNominal=umRows.reduce((a,r)=>a+scanUmDetailPayment(r),0);
-  const sameFakturAllUm=allUm.filter(r=>scanUmFaktur(r.faktur)===scanUmFaktur(no));
+  const sameFakturAllUm=((typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[]).filter(r=>scanUmFaktur(r.faktur)===scanUmFaktur(no));
   const excludedSameFakturUm=Math.max(0,sameFakturAllUm.length-umRows.length);
   const titleEl=document.getElementById('scanUmModalTitle');
   if(titleEl) titleEl.textContent='Detail Faktur · '+String(no||'—');
