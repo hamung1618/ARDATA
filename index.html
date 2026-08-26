@@ -2761,7 +2761,7 @@ body.dark-mode #tab-scanum .scanum-head,body.dark-mode #tab-scanum .scanum-card,
                 <button type="button" class="btn btn-secondary" onclick="scanUmExportExcel()">📥 Export Excel</button>
               </div>
             </div>
-            <div class="scanum-note">💡 Tujuan utama: memastikan pembayaran yang sudah masuk dapat ditemukan pada Data Penjualan, dan menemukan faktur Tempo yang belum terlihat pembayarannya — sehingga kelupaan membuat AR bisa terdeteksi.</div>
+            <div class="scanum-note">💡 Tujuan utama: memastikan pembayaran yang sudah masuk dapat ditemukan pada Data Penjualan, dan menemukan faktur Tempo yang belum terlihat pembayarannya — sehingga kelupaan membuat AR bisa terdeteksi. Scan dibatasi ke <b>2 bulan terakhir</b> agar Penjualan &amp; Uang Masuk yang dibandingkan berasal dari periode yang sama.</div>
             <div class="scanum-cards" id="scanumCards">
               <div class="scanum-card all"><span>Total Penjualan</span><strong id="scanCAll">0</strong></div>
               <div class="scanum-card ok"><span>🟢 Cocok</span><strong id="scanCOk">0</strong></div>
@@ -9042,9 +9042,26 @@ function scanUmMoney(v){ return 'Rp '+Math.round(scanUmNum(v)).toLocaleString('i
 function scanUmSafe(v){ return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
 function scanUmDays(a,b){ const da=scanUmDate(a), db=scanUmDate(b); return da&&db ? Math.abs(da-db)/86400000 : 999; }
 
+// Batasi scan ke 2 bulan terakhir (bulan berjalan + 1 bulan sebelumnya) agar
+// Uang Masuk & Penjualan yang dibandingkan berasal dari periode yang sama,
+// dan tidak numpuk lintas bulan yang tidak relevan.
+function scanUmMonthKey(d){ return d ? (d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')) : null; }
+function scanUmActiveMonthKeys(){
+  const now=new Date(); const keys=[];
+  for(let i=0;i<2;i++){ const d=new Date(now.getFullYear(),now.getMonth()-i,1); keys.push(scanUmMonthKey(d)); }
+  return keys; // contoh: ['2026-08','2026-07']
+}
+function scanUmActiveMonthLabel(){
+  const names=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+  const now=new Date(); const cur=new Date(now.getFullYear(),now.getMonth(),1); const prev=new Date(now.getFullYear(),now.getMonth()-1,1);
+  return names[prev.getMonth()]+' – '+names[cur.getMonth()]+' '+cur.getFullYear();
+}
+
 function scanUmBuild(){
   const pjMap={}; const umMap={};
-  const pjRows=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
+  const activeMonths=new Set(scanUmActiveMonthKeys());
+  const pjRowsAll=(typeof allData!=='undefined'&&Array.isArray(allData))?allData:[];
+  const pjRows=pjRowsAll.filter(r=>{ const d=scanUmDate(r.Tanggal); return d && activeMonths.has(scanUmMonthKey(d)); });
   pjRows.forEach(r=>{
     const f=scanUmFaktur(r['No.Faktur']); if(!f) return;
     if(!pjMap[f]) pjMap[f]={noFaktur:String(r['No.Faktur']||'').trim(),sales:r.Sales||'',toko:r.Customer||'',alamat:r.Alamat||'',tanggal:r.Tanggal||'',nominal:0,tempo:false,cash:false,lines:0};
@@ -9053,7 +9070,8 @@ function scanUmBuild(){
     const isCash=(pay===''||pay==='0'||pay==='cash'||pay==='tunai');
     if(isCash) x.cash=true; else x.tempo=true;
   });
-  const ums=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
+  const umsAll=(typeof umAllRows!=='undefined'&&Array.isArray(umAllRows))?umAllRows:[];
+  const ums=umsAll.filter(r=>{ const d=scanUmDate(r.date); return d && activeMonths.has(scanUmMonthKey(d)); });
   ums.forEach(r=>{
     const f=scanUmFaktur(r.faktur); if(!f) return;
     if(!umMap[f]) umMap[f]={noFaktur:String(r.faktur||'').trim(),sales:r.sales||'',toko:r.toko||'',tanggal:r.date||'',bayar:0,tagihan:0,count:0,status:r.status||''};
@@ -9091,7 +9109,7 @@ function scanUmRender(){
   const q=(document.getElementById('scanumSearch')?.value||'').toLowerCase().trim(); const f=document.getElementById('scanumFilter')?.value||'all'; const typ=document.getElementById('scanumType')?.value||'all';
   let rows=scanUmRows.filter(r=>(f==='all'||r.status===f)&&(typ==='all'||(typ==='tempo'&&r.tempo)||(typ==='cash'&&r.kind==='pj'&&!r.tempo)));
   if(q) rows=rows.filter(r=>(r.noFaktur+' '+r.sales+' '+r.toko).toLowerCase().includes(q));
-  const info=document.getElementById('scanumInfo'); if(info) info.textContent='Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Scan hanya membaca data';
+  const info=document.getElementById('scanumInfo'); if(info) info.textContent='Menampilkan '+rows.length.toLocaleString('id-ID')+' hasil · Periode: '+scanUmActiveMonthLabel()+' · Scan hanya membaca data';
   if(!rows.length){tb.innerHTML='<tr><td colspan="11" class="scanum-empty">Tidak ada hasil untuk filter ini.</td></tr>';return;}
   const max=1000; const shown=rows.slice(0,max); let html='';
   shown.forEach((r,i)=>{ const badge=r.status==='ok'?'ok':r.status==='partial'?'partial':r.status==='missing'?'missing':'orphan'; const sign=r.selisih>0?'+':''; const faktur=scanUmSafe(r.noFaktur);
